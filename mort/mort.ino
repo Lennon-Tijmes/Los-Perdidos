@@ -11,6 +11,9 @@
 
 int LRRotations = 0;
 int RRRotations = 0;
+unsigned long LRotationTime = 0;
+unsigned long RRotationTime = 0;
+const unsigned long debounce = 10;
 
 void setup() 
 {
@@ -21,17 +24,30 @@ void setup()
 
 void loop() 
 {
-
+  goForwards();
+  delay(500);
+  turnLeft();
+  delay(500);
 }
 
 void rotateLR() 
 {
-  LRRotations++;
+  unsigned long time = millis();
+  if (time - LRotationTime >= debounce)
+  {
+    LRRotations++;
+    LRotationTime = time;
+  }
 }
 
 void rotateRR() 
 {
-  RRRotations++;
+  unsigned long time = millis();
+  if (time - RRotationTime >= debounce)
+  {
+    RRRotations++;
+    RRotationTime = time;
+  }
 }
 
 void goForwards()
@@ -63,10 +79,11 @@ void turnRight()
 {
   stopDriving();
   delay(500);
-  LRRotations = 0;
-  while (LRRotations < 190)
+  RRRotations = 0;
+  while (RRRotations < 190)
   {
-    Serial.println(LRRotations);
+    Serial.print("Right:"); 
+    Serial.println(RRRotations);
     analogWrite(MOTOR_LB, MOTOR_STOP);
     analogWrite(MOTOR_RB, MOTOR_R_FULL_SPEED);
     analogWrite(MOTOR_LF, MOTOR_L_FULL_SPEED);
@@ -80,10 +97,11 @@ void turnLeft()
 {
   stopDriving();
   delay(500);
-  RRRotations = 0;
-  while (RRRotations < 190)
+  LRRotations = 0;
+  while (LRRotations < 190)
   {
-    Serial.println(LRRotations);
+    Serial.print("Left:");
+    Serial.println(LRRotations); 
     analogWrite(MOTOR_RB, MOTOR_STOP);
     analogWrite(MOTOR_LB, MOTOR_R_FULL_SPEED);
     analogWrite(MOTOR_RF, MOTOR_L_FULL_SPEED);
