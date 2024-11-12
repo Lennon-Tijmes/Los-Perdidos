@@ -1,26 +1,28 @@
-// motors
-#define MOTOR_L_FULL_SPEED 250  // Left motor full speed
-#define MOTOR_R_FULL_SPEED 255  // Right motor full speed
-#define MOTOR_STOP         0    // Motor stopping speed
+// Section for the motors
 #define MOTOR_LF           9    // Forwards left motor
 #define MOTOR_RF           10   // Forwards right motor
 #define MOTOR_LB           5    // Backwards left motor
 #define MOTOR_RB           6    // Backwards right motor
+#define MOTOR_L_FULL_SPEED 250  // Left motor full speed
+#define MOTOR_R_FULL_SPEED 255  // Right motor full speed
+#define MOTOR_STOP         0    // Motor stopping speed
 
 // TODO: Figure out which one is actually left and right
 #define MOTOR_LR           2    // Left rotation sensor
 #define MOTOR_RR           3    // Right rotation sensor
-
-//Servo
-#define GRIPPERPIN 4 // gripper pin
-#define GRIPPER_OPEN 1600 // value for gripper being open
-#define GRIPPER_CLOSED 950 // value for gripper being closed
 
 int LRRotations = 0;
 int RRRotations = 0;
 unsigned long LRotationTime = 0;
 unsigned long RRotationTime = 0;
 const unsigned long debounce = 10;
+
+// Section for the servo motor
+// TODO: get a servo pin
+#define GRIPPER_PIN        4    // Pin for the servo gripper
+#define GRIPPER_OPEN       1600 // Value for gripper being open
+#define GRIPPER_CLOSED     950  // Value for gripper being closed
+
 
 void setup() 
 {
@@ -37,7 +39,8 @@ void loop()
   delay(500);
 }
 
-void rotateLR() 
+// Counts the interrupts of the rotation sensor for the left wheel
+void rotateLR()
 {
   unsigned long time = millis();
   if (time - LRotationTime >= debounce)
@@ -47,6 +50,7 @@ void rotateLR()
   }
 }
 
+// Counts the interrupts of the rotation sensor for the right wheel
 void rotateRR() 
 {
   unsigned long time = millis();
@@ -57,6 +61,7 @@ void rotateRR()
   }
 }
 
+// Makes the relaybot drive in a straight line fprward
 void goForwards()
 {
   analogWrite(MOTOR_LF, MOTOR_L_FULL_SPEED);
@@ -65,6 +70,7 @@ void goForwards()
   analogWrite(MOTOR_RB, MOTOR_STOP);
 }
 
+// Makes the relaybot drive in a straight line backwards
 void goBackwards()
 {
   analogWrite(MOTOR_LB, MOTOR_L_FULL_SPEED);
@@ -73,6 +79,7 @@ void goBackwards()
   analogWrite(MOTOR_RF, MOTOR_STOP);
 }
 
+// Stops all the motors
 void stopDriving()
 {
   analogWrite(MOTOR_LB, MOTOR_STOP);
@@ -81,8 +88,9 @@ void stopDriving()
   analogWrite(MOTOR_RF, MOTOR_STOP); 
 }
 
+// Rotate the relaybot on its axis to the right
 // TODO: Make it turn correctly
-void turnRight()
+void rotateRight()
 {
   stopDriving();
   delay(500);
@@ -99,8 +107,9 @@ void turnRight()
   stopDriving();
 }
 
+// Rotate the relaybot on its axis to the left
 // TODO: Make it turn correctly
-void turnLeft()
+void rotateLeft()
 {
   stopDriving();
   delay(500);
@@ -117,9 +126,23 @@ void turnLeft()
   stopDriving();
 }
 
+// Function for making a left turn
+// TODO: Make this function
+void turnLeft()
+{
 
-//sets the gripper
-void servo(int pulse) 
+}
+
+// Function for making a right turn
+// TODO: Make this function
+void turnRight()
+{
+  
+}
+
+
+// Sets the gripper position to the given pulse
+void setGripper(int pulse) 
 {
   for (int i = 0; i < 8; i++) 
   {
