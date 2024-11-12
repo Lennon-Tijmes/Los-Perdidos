@@ -145,7 +145,6 @@ void turnRight()
   
 }
 
-
 // Sets the gripper position to the given pulse
 void setGripper(int pulse) 
 {
