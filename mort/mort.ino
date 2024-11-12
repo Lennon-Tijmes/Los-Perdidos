@@ -6,8 +6,15 @@
 #define MOTOR_RF           10   // Forwards right motor
 #define MOTOR_LB           5    // Backwards left motor
 #define MOTOR_RB           6    // Backwards right motor
+
+// TODO: Figure out which one is actually left and right
 #define MOTOR_LR           2    // Left rotation sensor
 #define MOTOR_RR           3    // Right rotation sensor
+
+//Servo
+#define GRIPPERPIN 4 // gripper pin
+#define GRIPPER_OPEN 1600 // value for gripper being open
+#define GRIPPER_CLOSED 950 // value for gripper being closed
 
 int LRRotations = 0;
 int RRRotations = 0;
@@ -108,4 +115,16 @@ void turnLeft()
     analogWrite(MOTOR_LF, MOTOR_STOP); 
   }
   stopDriving();
+}
+
+
+//sets the gripper
+void servo(int pulse) 
+{
+  for (int i = 0; i < 8; i++) 
+  {
+    digitalWrite(GRIPPER_PIN, HIGH);
+    delayMicroseconds(pulse);
+    digitalWrite(GRIPPER_PIN, LOW);
+  }
 }
