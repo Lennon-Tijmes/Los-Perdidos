@@ -61,7 +61,8 @@ void rotateRR()
   }
 }
 
-// Makes the relaybot drive in a straight line fprward
+// Makes the relaybot drive in a straight line forward
+// TODO: Make the robot drive a certain speed, calibrated with rotation sensor
 void goForwards()
 {
   analogWrite(MOTOR_LF, MOTOR_L_FULL_SPEED);
@@ -71,6 +72,7 @@ void goForwards()
 }
 
 // Makes the relaybot drive in a straight line backwards
+// TODO: Make the robot drive a certain speed, calibrated with rotation sensor
 void goBackwards()
 {
   analogWrite(MOTOR_LB, MOTOR_L_FULL_SPEED);
