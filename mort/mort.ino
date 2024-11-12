@@ -4,10 +4,12 @@
 #define MOTOR_LB           5    // Backwards left motor
 #define MOTOR_RB           6    // Backwards right motor
 #define MOTOR_L_FULL_SPEED 250  // Left motor full speed
+#define MOTOR_L_HALF_SPEED 140  // Left motor half speed
 #define MOTOR_R_FULL_SPEED 255  // Right motor full speed
+#define MOTOR_R_HALF_SPEED 140  // Right motor half speed
 #define MOTOR_STOP         0    // Motor stopping speed
 
-// TODO: Figure out which one is actually left and right
+// Section for the rotation sensor
 #define MOTOR_LR           2    // Left rotation sensor
 #define MOTOR_RR           3    // Right rotation sensor
 
@@ -36,10 +38,9 @@ void setup()
 // Code to keep repeating
 void loop() 
 {
-  goForwards();
-  delay(500);
-  turnLeft();
-  delay(500);
+  turnRight();
+  delay(2000);
+  stopDriving();
 }
 
 // Counts the interrupts of the rotation sensor for the left wheel
@@ -100,6 +101,7 @@ void rotateRight()
   stopDriving();
   delay(500);
   RRRotations = 0;
+  // TODO: make the magic number less magical 
   while (RRRotations < 190)
   {
     Serial.print("Right:"); 
@@ -119,6 +121,7 @@ void rotateLeft()
   stopDriving();
   delay(500);
   LRRotations = 0;
+  // TODO: make the magic number less magical 
   while (LRRotations < 190)
   {
     Serial.print("Left:");
@@ -132,17 +135,44 @@ void rotateLeft()
 }
 
 // Function for making a left turn
-// TODO: Make this function
+// TODO: Make it turn smoothly using the rotation sensors
 void turnLeft()
 {
-
+  LRRotations = 0;
+  RRRotations = 0;
+  while (LRRotations < 190 && RRRotations < 160)
+  {
+    Serial.print("Left: ");
+    Serial.print(LRRotations);
+    Serial.print("  Right: ");
+    Serial.println(RRRotations);
+    analogWrite(MOTOR_RB, MOTOR_STOP);
+    analogWrite(MOTOR_LB, MOTOR_STOP);
+    analogWrite(MOTOR_RF, MOTOR_R_FULL_SPEED);
+    analogWrite(MOTOR_LF, MOTOR_L_HALF_SPEED);
+  }
+  stopDriving();
 }
 
 // Function for making a right turn
-// TODO: Make this function
+// TODO: Make it turn smoothly using the rotation sensors
+// TODO: Make it full throttle in the beginning so it starts properly
 void turnRight()
 {
-  
+  LRRotations = 0;
+  RRRotations = 0;
+  while (LRRotations < 160 && RRRotations < 190)
+  {
+    Serial.print("Left: ");
+    Serial.print(LRRotations);
+    Serial.print("  Right: ");
+    Serial.println(RRRotations);
+    analogWrite(MOTOR_RB, MOTOR_STOP);
+    analogWrite(MOTOR_LB, MOTOR_STOP);
+    analogWrite(MOTOR_RF, MOTOR_R_HALF_SPEED);
+    analogWrite(MOTOR_LF, MOTOR_L_FULL_SPEED);
+  }
+  stopDriving();
 }
 
 // Sets the gripper position to the given pulse
