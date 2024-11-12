@@ -11,18 +11,18 @@
 #define MOTOR_LR           2    // Left rotation sensor
 #define MOTOR_RR           3    // Right rotation sensor
 
-int LRRotations = 0;
-int RRRotations = 0;
-unsigned long LRotationTime = 0;
-unsigned long RRotationTime = 0;
-const unsigned long debounce = 10;
-
 // Section for the servo motor
 // TODO: get a servo pin
 #define GRIPPER_PIN        4    // Pin for the servo gripper
 #define GRIPPER_OPEN       1600 // Value for gripper being open
 #define GRIPPER_CLOSED     950  // Value for gripper being closed
 
+// Section for the Rotation values
+int LRRotations = 0;
+int RRRotations = 0;
+unsigned long LRotationTime = 0;
+unsigned long RRotationTime = 0;
+const unsigned long debounce = 10;
 
 void setup() 
 {
