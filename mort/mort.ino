@@ -24,13 +24,16 @@ unsigned long LRotationTime = 0;
 unsigned long RRotationTime = 0;
 const unsigned long debounce = 10;
 
+// Code to run once
 void setup() 
 {
   Serial.begin(9600);
+  pinMode(GRIPPER_PIN, OUTPUT);
   attachInterrupt(digitalPinToInterrupt(MOTOR_LR), rotateLR, CHANGE); //interrupt activates when rotation sensor changes
   attachInterrupt(digitalPinToInterrupt(MOTOR_RR), rotateRR, CHANGE); //interrupt activates when rotation sensor changes
 }
 
+// Code to keep repeating
 void loop() 
 {
   goForwards();
