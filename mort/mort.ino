@@ -1,20 +1,17 @@
 // Section for the motors
 #define MOTOR_LF           9    // Forwards left motor
 #define MOTOR_RF           10   // Forwards right motor
-#define MOTOR_LB           5    // Backwards left motor
-#define MOTOR_RB           6    // Backwards right motor
+#define MOTOR_LB           7    // Backwards left motor
+#define MOTOR_RB           8    // Backwards right motor
 #define MOTOR_L_FULL_SPEED 250  // Left motor full speed
 #define MOTOR_L_HALF_SPEED 140  // Left motor half speed
 #define MOTOR_R_FULL_SPEED 255  // Right motor full speed
 #define MOTOR_R_HALF_SPEED 140  // Right motor half speed
 #define MOTOR_STOP         0    // Motor stopping speed
-
-// Section for the rotation sensor
 #define MOTOR_LR           2    // Left rotation sensor
 #define MOTOR_RR           3    // Right rotation sensor
 
 // Section for the servo motor
-// TODO: get a servo pin
 #define GRIPPER_PIN        4    // Pin for the servo gripper
 #define GRIPPER_OPEN       1600 // Value for gripper being open
 #define GRIPPER_CLOSED     950  // Value for gripper being closed
@@ -31,6 +28,7 @@ void setup()
 {
   Serial.begin(9600);
   pinMode(GRIPPER_PIN, OUTPUT);
+  setGripper(GRIPPER_OPEN);
   attachInterrupt(digitalPinToInterrupt(MOTOR_LR), rotateLR, CHANGE); //interrupt activates when rotation sensor changes
   attachInterrupt(digitalPinToInterrupt(MOTOR_RR), rotateRR, CHANGE); //interrupt activates when rotation sensor changes
 }
@@ -38,9 +36,14 @@ void setup()
 // Code to keep repeating
 void loop() 
 {
-  turnRight();
-  delay(2000);
+  goForwards(240);
+  delay(1000);
   stopDriving();
+  delay(1000);
+  goBackwards(240);
+  delay(1000);
+  stopDriving();
+  delay(1000);
 }
 
 // Counts the interrupts of the rotation sensor for the left wheel
@@ -67,22 +70,22 @@ void rotateRR()
 
 // Makes the relaybot drive in a straight line forward
 // TODO: Make the robot drive a certain speed, calibrated with rotation sensor
-void goForwards()
+void goForwards(int speed)
 {
   analogWrite(MOTOR_LF, MOTOR_L_FULL_SPEED);
   analogWrite(MOTOR_RF, MOTOR_R_FULL_SPEED);
-  analogWrite(MOTOR_LB, MOTOR_STOP);
-  analogWrite(MOTOR_RB, MOTOR_STOP);
+  digitalWrite(MOTOR_LB, MOTOR_STOP);
+  digitalWrite(MOTOR_RB, MOTOR_STOP);
 }
 
 // Makes the relaybot drive in a straight line backwards
 // TODO: Make the robot drive a certain speed, calibrated with rotation sensor
-void goBackwards()
+void goBackwards(int speed)
 {
-  analogWrite(MOTOR_LB, MOTOR_L_FULL_SPEED);
-  analogWrite(MOTOR_RB, MOTOR_R_FULL_SPEED);
-  analogWrite(MOTOR_LF, MOTOR_STOP);
-  analogWrite(MOTOR_RF, MOTOR_STOP);
+  digitalWrite(MOTOR_LB, 1);
+  digitalWrite(MOTOR_RB, 1);
+  analogWrite(MOTOR_LF, (MOTOR_L_FULL_SPEED - speed));
+  analogWrite(MOTOR_RF, (MOTOR_R_FULL_SPEED - speed));
 }
 
 // Stops all the motors
@@ -106,8 +109,8 @@ void rotateRight()
   {
     Serial.print("Right:"); 
     Serial.println(RRRotations);
-    analogWrite(MOTOR_LB, MOTOR_STOP);
-    analogWrite(MOTOR_RB, MOTOR_R_FULL_SPEED);
+    digitalWrite(MOTOR_LB, MOTOR_STOP);
+    digitalWrite(MOTOR_RB, 1);
     analogWrite(MOTOR_LF, MOTOR_L_FULL_SPEED);
     analogWrite(MOTOR_RF, MOTOR_STOP); 
   }
@@ -126,8 +129,8 @@ void rotateLeft()
   {
     Serial.print("Left:");
     Serial.println(LRRotations); 
-    analogWrite(MOTOR_RB, MOTOR_STOP);
-    analogWrite(MOTOR_LB, MOTOR_R_FULL_SPEED);
+    digitalWrite(MOTOR_RB, MOTOR_STOP);
+    digitalWrite(MOTOR_LB, 1);
     analogWrite(MOTOR_RF, MOTOR_L_FULL_SPEED);
     analogWrite(MOTOR_LF, MOTOR_STOP); 
   }
@@ -146,8 +149,8 @@ void turnLeft()
     Serial.print(LRRotations);
     Serial.print("  Right: ");
     Serial.println(RRRotations);
-    analogWrite(MOTOR_RB, MOTOR_STOP);
-    analogWrite(MOTOR_LB, MOTOR_STOP);
+    digitalWrite(MOTOR_RB, MOTOR_STOP);
+    digitalWrite(MOTOR_LB, MOTOR_STOP);
     analogWrite(MOTOR_RF, MOTOR_R_FULL_SPEED);
     analogWrite(MOTOR_LF, MOTOR_L_HALF_SPEED);
   }
@@ -167,8 +170,8 @@ void turnRight()
     Serial.print(LRRotations);
     Serial.print("  Right: ");
     Serial.println(RRRotations);
-    analogWrite(MOTOR_RB, MOTOR_STOP);
-    analogWrite(MOTOR_LB, MOTOR_STOP);
+    digitalWrite(MOTOR_RB, MOTOR_STOP);
+    digitalWrite(MOTOR_LB, MOTOR_STOP);
     analogWrite(MOTOR_RF, MOTOR_R_HALF_SPEED);
     analogWrite(MOTOR_LF, MOTOR_L_FULL_SPEED);
   }
