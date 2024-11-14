@@ -21,7 +21,7 @@ int LRRotations = 0;
 int RRRotations = 0;
 unsigned long LRotationTime = 0;
 unsigned long RRotationTime = 0;
-const unsigned long debounce = 10;
+const unsigned long debounce = 25;
 
 // Code to run once
 void setup() 
