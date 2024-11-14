@@ -14,7 +14,17 @@
 // Section for the servo motor
 #define GRIPPER_PIN        4    // Pin for the servo gripper
 #define GRIPPER_OPEN       1600 // Value for gripper being open
-#define GRIPPER_CLOSED     950  // Value for gripper being closed
+#define GRIPPER_CLOSED     1010  // Value for gripper being closed
+
+// Section for the Ultrasonic distance sensor
+#define SONAR_TRIG_PIN     12   // Sonar trig pin
+#define SONAR_ECHO_PIN     13   // Sonar echo pin 
+long startTime = 0;
+long duration = 0;
+bool trigStarted = false;
+bool echoStarted = false;
+bool echoEnded = false;
+int distance = 999;
 
 // Section for the Rotation values
 int LRRotations = 0;
@@ -28,6 +38,8 @@ void setup()
 {
   Serial.begin(9600);
   pinMode(GRIPPER_PIN, OUTPUT);
+  pinMode(SONAR_TRIG_PIN, OUTPUT);
+  pinMode(SONAR_ECHO_PIN, INPUT);
   setGripper(GRIPPER_OPEN);
   attachInterrupt(digitalPinToInterrupt(MOTOR_LR), rotateLR, CHANGE); //interrupt activates when rotation sensor changes
   attachInterrupt(digitalPinToInterrupt(MOTOR_RR), rotateRR, CHANGE); //interrupt activates when rotation sensor changes
@@ -36,13 +48,15 @@ void setup()
 // Code to keep repeating
 void loop() 
 {
-  goForwards(240);
-  delay(1000);
-  stopDriving();
-  delay(1000);
-  goBackwards(240);
-  delay(1000);
-  stopDriving();
+  readSonar();
+  if (distance < 30)
+  {
+    setGripper(GRIPPER_CLOSED);
+  }
+  else
+  {
+    setGripper(GRIPPER_OPEN);
+  }
   delay(1000);
 }
 
@@ -186,5 +200,52 @@ void setGripper(int pulse)
     digitalWrite(GRIPPER_PIN, HIGH);
     delayMicroseconds(pulse);
     digitalWrite(GRIPPER_PIN, LOW);
+  }
+}
+
+// Reads the sonar and returns the distance in centimeters
+void readSonar()
+{
+   // Clears the trig pin
+  if (!trigStarted) 
+  {
+    digitalWrite(SONAR_TRIG_PIN, LOW);
+    startTime = micros();
+    trigStarted = true;
+  }
+
+  // Turn trig pin on after 2 microseconds 
+  if (trigStarted && (micros() - startTime >= 2))
+   {
+    digitalWrite(SONAR_TRIG_PIN, HIGH);
+    trigStarted = false;
+    echoStarted = true;
+    startTime = micros(); 
+  }
+
+  // Turn trig pin off after 10 microseconds
+  if (echoStarted && (micros() - startTime >= 10)) 
+  {
+    digitalWrite(SONAR_TRIG_PIN, LOW);
+    echoStarted = false;
+  }
+
+  // Reads the echoPin, returns the sound wave travel time in microseconds
+  if (!echoEnded) {
+    duration = pulseIn(SONAR_ECHO_PIN, HIGH);
+    if (duration > 0) 
+    {
+      echoEnded = true;
+      distance = duration * 0.034 / 2; // Calculate distance in cm
+      Serial.println(distance);
+    }
+  }
+
+  // Reset the variables
+  if (echoEnded) 
+  {
+    trigStarted = false;
+    echoStarted = false;
+    echoEnded = false;
   }
 }
