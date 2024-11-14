@@ -1,9 +1,9 @@
 #include <Arduino.h>
 
-#define motorLFFullSpeed 240
-#define motorRFFullSpeed 254
-#define motorLBFullSpeed 243
-#define motorRBFullSpeed 255
+#define motorLFFullSpeed 231
+#define motorRFFullSpeed 253
+#define motorLBFullSpeed 240
+#define motorRBFullSpeed 253
 #define motorLHalfSpeed 177
 #define motorRHalfSpeed 177
 #define motorStop 0
@@ -22,17 +22,19 @@ void setup() {
 
 void loop() {
   goForwards();
-  delay(1000);
+  delay(5000);
   goBackwards();
-  delay(1000);
+  delay(5000);
   goRight();
-  delay(1000);
+  delay(2000);
   goLeft();
-  delay(1000);
-  rotateLeft();
-  delay(1000);
+  delay(2000);
   rotateRight();
-  delay(1000);
+  delay(525);
+  stopBot();
+
+  while(1)
+  {}
 }
 
 void goForwards()
@@ -61,13 +63,13 @@ void goRight()
 
 void goLeft()
 {
-  analogWrite(motorLB, motorLHalfSpeed);
-  analogWrite(motorRB, motorRFFullSpeed);
-  analogWrite(motorLF, motorStop);
-  analogWrite(motorRF, motorStop);
+  analogWrite(motorLF, motorLHalfSpeed);
+  analogWrite(motorRF, motorRFFullSpeed);
+  analogWrite(motorLB, motorStop);
+  analogWrite(motorRB, motorStop);
 }
 
-void rotateRight()
+void rotateLeft()
 {
   analogWrite(motorLB, motorLBFullSpeed);
   analogWrite(motorRB, motorStop);
@@ -75,10 +77,30 @@ void rotateRight()
   analogWrite(motorLF, motorStop);
 }
 
-void rotateLeft()
+void rotateRight()
 {
   analogWrite(motorRB, motorRBFullSpeed);
   analogWrite(motorLB, motorStop);
   analogWrite(motorLF, motorLFFullSpeed);
-  analogWrite(motorLF, motorStop);
+  analogWrite(motorRF, motorStop);
 }
+void stopBot()
+{
+  analogWrite(motorRB, motorStop);
+  analogWrite(motorLB, motorStop);
+  analogWrite(motorLF, motorStop);
+  analogWrite(motorRF, motorStop);
+}
+
+/*
+  goForwards();
+  delay(5000);
+  goBackwards();
+  delay(5000);
+  goRight();
+  delay(2000);
+  goLeft();
+  delay(2000);
+  rotateLeft();
+  delay(500);
+*/
