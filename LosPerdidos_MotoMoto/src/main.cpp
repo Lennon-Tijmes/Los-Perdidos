@@ -1,8 +1,8 @@
 #include <Arduino.h>
 
-#define motorLFFullSpeed 231
+#define motorLFFullSpeed 220
 #define motorRFFullSpeed 253
-#define motorLBFullSpeed 240
+#define motorLBFullSpeed 243
 #define motorRBFullSpeed 253
 #define motorLHalfSpeed 177
 #define motorRHalfSpeed 177
