@@ -57,7 +57,19 @@ void loop()
   // Check distance
   if (distance > 0 && distance <= 20) {
     stopMotors();   // Stop motors if object is close
-    Serial.println("Object detected! Motors stopped.");
+    delay(200);
+    turnRigth();
+    delay(1000);
+    moveForwards();
+    delay(200);
+    turnLeft();
+    delay(5000);
+    stopMotors();
+    delay(200);
+    turnRigth();
+    delay(1000);
+
+
   } else {
     moveForwards(); // Keep moving forwards otherwise
     Serial.println("No object detected. Moving forwards.");
