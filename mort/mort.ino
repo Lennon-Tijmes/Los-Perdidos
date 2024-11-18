@@ -31,7 +31,7 @@ int LRRotations = 0;
 int RRRotations = 0;
 unsigned long LRotationTime = 0;
 unsigned long RRotationTime = 0;
-const unsigned long debounce = 25;
+const unsigned long debounce = 30;
 
 // Code to run once
 void setup() 
@@ -48,15 +48,19 @@ void setup()
 // Code to keep repeating
 void loop() 
 {
-  readSonar();
-  if (distance < 30)
-  {
-    setGripper(GRIPPER_CLOSED);
-  }
-  else
-  {
-    setGripper(GRIPPER_OPEN);
-  }
+  goForwards(255);
+  delay(2000);
+  stopDriving();
+  delay(1000);
+  goBackwards(255);
+  delay(2000);
+  rotateRight();
+  delay(1000);
+  rotateLeft();
+  delay(1000);
+  turnRight();
+  delay(1000);
+  turnLeft();
   delay(1000);
 }
 
@@ -86,6 +90,12 @@ void rotateRR()
 // TODO: Make the robot drive a certain speed, calibrated with rotation sensor
 void goForwards(int speed)
 {
+  LRRotations = 0;
+  RRRotations = 0;
+  Serial.print("Left: ");
+  Serial.print(LRRotations);
+  Serial.print("  Right: ");
+  Serial.println(RRRotations);
   analogWrite(MOTOR_LF, MOTOR_L_FULL_SPEED);
   analogWrite(MOTOR_RF, MOTOR_R_FULL_SPEED);
   digitalWrite(MOTOR_LB, MOTOR_STOP);
@@ -98,15 +108,19 @@ void goBackwards(int speed)
 {
   digitalWrite(MOTOR_LB, 1);
   digitalWrite(MOTOR_RB, 1);
-  analogWrite(MOTOR_LF, (MOTOR_L_FULL_SPEED - speed));
+  analogWrite(MOTOR_LF, (-MOTOR_L_FULL_SPEED - speed));
   analogWrite(MOTOR_RF, (MOTOR_R_FULL_SPEED - speed));
 }
 
 // Stops all the motors
 void stopDriving()
 {
-  analogWrite(MOTOR_LB, MOTOR_STOP);
-  analogWrite(MOTOR_RB, MOTOR_STOP);
+  Serial.print("Left: ");
+  Serial.print(LRRotations);
+  Serial.print("  Right: ");
+  Serial.println(RRRotations);
+  digitalWrite(MOTOR_LB, MOTOR_STOP);
+  digitalWrite(MOTOR_RB, MOTOR_STOP);
   analogWrite(MOTOR_LF, MOTOR_STOP);
   analogWrite(MOTOR_RF, MOTOR_STOP); 
 }
@@ -119,7 +133,7 @@ void rotateRight()
   delay(500);
   RRRotations = 0;
   // TODO: make the magic number less magical 
-  while (RRRotations < 190)
+  while (RRRotations < 12)
   {
     Serial.print("Right:"); 
     Serial.println(RRRotations);
@@ -139,7 +153,7 @@ void rotateLeft()
   delay(500);
   LRRotations = 0;
   // TODO: make the magic number less magical 
-  while (LRRotations < 190)
+  while (LRRotations < 12)
   {
     Serial.print("Left:");
     Serial.println(LRRotations); 
@@ -157,7 +171,7 @@ void turnLeft()
 {
   LRRotations = 0;
   RRRotations = 0;
-  while (LRRotations < 190 && RRRotations < 160)
+  while (LRRotations < 60 && RRRotations < 50)
   {
     Serial.print("Left: ");
     Serial.print(LRRotations);
@@ -178,7 +192,7 @@ void turnRight()
 {
   LRRotations = 0;
   RRRotations = 0;
-  while (LRRotations < 160 && RRRotations < 190)
+  while (LRRotations < 50 && RRRotations < 60)
   {
     Serial.print("Left: ");
     Serial.print(LRRotations);
