@@ -59,3 +59,62 @@ void loop()
   
   stopMotors();
 }
+void moveForwards() 
+{
+  analogWrite(motorLF, motorLFFullSpeed);
+  analogWrite(motorRF, motorRFFullSpeed);
+  analogWrite(motorLB, motorStop);
+  analogWrite(motorRB, motorStop);
+}
+
+void moveBackwards() 
+{
+  analogWrite(motorLB, motorLBFullSpeed);
+  analogWrite(motorRB, motorRBFullSpeed);
+  analogWrite(motorLF, motorStop);
+  analogWrite(motorRF, motorStop);
+}
+
+void stopMotors() 
+{
+  analogWrite(motorRB, motorStop);
+  analogWrite(motorLB, motorStop);
+  analogWrite(motorLF, motorStop);
+  analogWrite(motorRF, motorStop);
+}
+
+void rotRigth()
+{
+  analogWrite(motorRB, motorLBFullSpeed);
+  analogWrite(motorLB, motorStop);
+  analogWrite(motorLF, motorLBFullSpeed);
+  analogWrite(motorRF, motorStop);
+}
+
+void rotLeft()
+{
+  analogWrite(motorRF, motorLBFullSpeed);
+  analogWrite(motorLF, motorStop);
+  analogWrite(motorLB, motorLBFullSpeed);
+  analogWrite(motorRB, motorStop);
+}
+
+void turnRigth()
+{
+  analogWrite(motorRB, motorStop);
+  analogWrite(motorLB, motorStop);
+  analogWrite(motorLF, motorLFFullSpeed);
+  analogWrite(motorRF, motorRHalfSpeed);
+}
+
+void turnLeft()
+{
+  analogWrite(motorRF, motorRFFullSpeed);
+  analogWrite(motorLF, motorLHalfSpeed);
+  analogWrite(motorLB, motorStop);
+  analogWrite(motorRB, motorStop);
+}
+
+ 
+
+
