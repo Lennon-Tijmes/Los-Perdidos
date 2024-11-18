@@ -9,12 +9,14 @@
 #define motorRHalfSpeed 150
 #define motorStop 0
 
+
 // Motor PWM speed pins (must be PWM-capable pins)
 #define motorLB 11 // motor left backwards
 #define motorRF 9  // motor right forwards
 #define motorLF 10 // motor left forwards
 #define motorRB 3   // motor right backwards
-
+#define TRIG_PIN 12   //sonar trigger
+#define ECHO_PIN 13   //sonar echo
 
 
 void setup() 
@@ -24,40 +26,32 @@ void setup()
   pinMode(motorRF, OUTPUT);
   pinMode(motorLB, OUTPUT);
   pinMode(motorRB, OUTPUT);
+  pinMode(TRIG_PIN, OUTPUT);
+  pinMode(ECHO_PIN, INPUT);
+
 }
 
 void loop() 
-{
-  
-  moveForwards();
-  delay(1000);
-  stopMotors();
-  delay(500);
-  moveBackwards();
-  delay(1000);
-  stopMotors();
-  delay(500);
-  
-  rotRigth();
-  delay(600);
-  stopMotors();
-  delay(500);
-  rotLeft();
-  delay(600);
-  stopMotors();
-  delay(500);
-
  
-  turnLeft();
-  delay(1900);
-  stopMotors();
-  delay(500);
-  turnRigth();
-  delay(1800);
-  stopMotors();
-  delay(500);
-  
-  stopMotors();
+{
+  // Measure distance
+  long duration, distance;
+  digitalWrite(TRIG_PIN, LOW);
+  delayMicroseconds(2);             
+  digitalWrite(TRIG_PIN, HIGH);
+  delayMicroseconds(10);           
+  digitalWrite(TRIG_PIN, LOW);
+  duration = pulseIn(ECHO_PIN, HIGH);
+  distance = duration * 0.034 / 2;  
+
+  // Check distance
+  if (distance > 0 && distance <= 20) {
+    stopMotors();   
+  } 
+  else {
+    moveForwards(); 
+  } 
+ 
 }
 
 void moveForwards() 
