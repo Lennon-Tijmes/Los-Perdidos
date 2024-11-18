@@ -1,0 +1,61 @@
+#include "Arduino.h"
+
+// Motor speed definitions
+#define motorLFFullSpeed 220
+#define motorRFFullSpeed 220
+#define motorLBFullSpeed 253
+#define motorRBFullSpeed 253
+#define motorLHalfSpeed 120
+#define motorRHalfSpeed 120
+#define motorStop 0
+
+// Motor PWM speed pins (must be PWM-capable pins)
+#define motorLB 11 // motor left backwards
+#define motorRF 9  // motor right forwards
+#define motorLF 10 // motor left forwards
+#define motorRB 3   // motor right backwards
+
+
+
+void setup() 
+{
+  // Set motor direction pins as outputs
+  pinMode(motorLF, OUTPUT);
+  pinMode(motorRF, OUTPUT);
+  pinMode(motorLB, OUTPUT);
+  pinMode(motorRB, OUTPUT);
+}
+
+void loop() 
+{
+  
+  moveForwards();
+  delay(1000);
+  stopMotors();
+  delay(500);
+  moveBackwards();
+  delay(1000);
+  stopMotors();
+  delay(500);
+  
+  rotRigth();
+  delay(500);
+  stopMotors();
+  delay(500);
+  rotLeft();
+  delay(500);
+  stopMotors();
+  delay(500);
+
+ 
+  turnLeft();
+  delay(1500);
+  stopMotors();
+  delay(500);
+  turnRigth();
+  delay(1500);
+  stopMotors();
+  delay(500);
+  
+  stopMotors();
+}
