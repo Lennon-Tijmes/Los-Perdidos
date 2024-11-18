@@ -39,21 +39,21 @@ void loop()
   delay(500);
   
   rotRigth();
-  delay(500);
+  delay(1000);
   stopMotors();
   delay(500);
   rotLeft();
-  delay(500);
+  delay(1000);
   stopMotors();
   delay(500);
 
  
   turnLeft();
-  delay(1500);
+  delay(2000);
   stopMotors();
   delay(500);
   turnRigth();
-  delay(1500);
+  delay(2000);
   stopMotors();
   delay(500);
   
