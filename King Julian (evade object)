@@ -15,8 +15,8 @@
 #define motorRF 9  // motor right forwards
 #define motorLF 10 // motor left forwards
 #define motorRB 3   // motor right backwards
-#define TRIG_PIN 12   //sonar trigger
-#define ECHO_PIN 13   //sonar echo
+#define TRIG_PIN 12   
+#define ECHO_PIN 13
 
 
 void setup() 
@@ -29,30 +29,44 @@ void setup()
   pinMode(TRIG_PIN, OUTPUT);
   pinMode(ECHO_PIN, INPUT);
 
+  Serial.begin(9600); // For debugging
+
+
 }
 
 void loop() 
- 
+
 {
-  // Measure distance
+   // Measure distance
   long duration, distance;
   digitalWrite(TRIG_PIN, LOW);
-  delayMicroseconds(2);             
+  delayMicroseconds(2);             // Ensure trigger is off
   digitalWrite(TRIG_PIN, HIGH);
-  delayMicroseconds(10);           
+  delayMicroseconds(10);            // Send a 10µs pulse
   digitalWrite(TRIG_PIN, LOW);
   duration = pulseIn(ECHO_PIN, HIGH);
-  distance = duration * 0.034 / 2;  
+
+  // Calculate distance in cm
+  distance = duration * 0.034 / 2;
+
+  // Debugging output
+  Serial.print("Distance: ");
+  Serial.print(distance);
+  Serial.println(" cm");
 
   // Check distance
   if (distance > 0 && distance <= 20) {
-    stopMotors();   
-  } 
-  else {
-    moveForwards(); 
-  } 
- 
+    stopMotors();   // Stop motors if object is close
+    Serial.println("Object detected! Motors stopped.");
+  } else {
+    moveForwards(); // Keep moving forwards otherwise
+    Serial.println("No object detected. Moving forwards.");
+  }
+
+  delay(100); // Small delay to stabilize readings
 }
+ 
+
 
 void moveForwards() 
 {
@@ -109,3 +123,4 @@ void turnLeft()
   analogWrite(motorLB, motorStop);
   analogWrite(motorRB, motorStop);
 }
+
