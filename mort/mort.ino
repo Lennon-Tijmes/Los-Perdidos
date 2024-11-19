@@ -29,9 +29,7 @@ int distance = 999;
 // Section for the Rotation values
 int LRRotations = 0;
 int RRRotations = 0;
-unsigned long LRotationTime = 0;
-unsigned long RRotationTime = 0;
-const unsigned long debounce = 30;
+const unsigned long debounce = 10;
 
 // Code to run once
 void setup() 
@@ -73,23 +71,39 @@ void loop()
 // Counts the interrupts of the rotation sensor for the left wheel
 void rotateLR()
 {
-  unsigned long time = millis();
-  if (time - LRotationTime >= debounce)
+  static unsigned long timer;
+  static bool lastState;
+  noInterrupts();
+  if (millis() > timer)
   {
-    LRRotations++;
-    LRotationTime = time;
+    bool state = digitalRead(MOTOR_LR);
+    if(state != lastState)
+    {
+      LRRotations++;
+      lastState = state;
+    }
+    timer = millis() + debounce;
   }
+  interrupts();
 }
 
 // Counts the interrupts of the rotation sensor for the right wheel
 void rotateRR() 
 {
-  unsigned long time = millis();
-  if (time - RRotationTime >= debounce)
+  static unsigned long timer;
+  static bool lastState;
+  noInterrupts();
+  if (millis() > timer)
   {
-    RRRotations++;
-    RRotationTime = time;
+    bool state = digitalRead(MOTOR_RR);
+    if(state != lastState)
+    {
+      RRRotations++;
+      lastState = state;
+    }
+    timer = millis() + debounce;
   }
+  interrupts();
 }
 
 // Makes the relaybot drive in a straight line forward
