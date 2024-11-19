@@ -37,6 +37,12 @@ const unsigned long debounce = 30;
 void setup() 
 {
   Serial.begin(9600);
+  pinMode(MOTOR_LF, OUTPUT);
+  pinMode(MOTOR_RF, OUTPUT);
+  pinMode(MOTOR_LB, OUTPUT);
+  pinMode(MOTOR_RB, OUTPUT);
+  pinMode(MOTOR_LR, INPUT_PULLUP);
+  pinMode(MOTOR_RR, INPUT_PULLUP);
   pinMode(GRIPPER_PIN, OUTPUT);
   pinMode(SONAR_TRIG_PIN, OUTPUT);
   pinMode(SONAR_ECHO_PIN, INPUT);
