@@ -3,7 +3,7 @@
 #define MOTOR_RF           10   // Forwards right motor
 #define MOTOR_LB           7    // Backwards left motor
 #define MOTOR_RB           8    // Backwards right motor
-#define MOTOR_L_FULL_SPEED 250  // Left motor full speed
+#define MOTOR_L_FULL_SPEED 255  // Left motor full speed
 #define MOTOR_L_HALF_SPEED 140  // Left motor half speed
 #define MOTOR_R_FULL_SPEED 255  // Right motor full speed
 #define MOTOR_R_HALF_SPEED 140  // Right motor half speed
@@ -23,6 +23,12 @@ const unsigned long debounce = 10;
 void setup() 
 {
   Serial.begin(9600);
+  pinMode(MOTOR_LF, OUTPUT);
+  pinMode(MOTOR_RF, OUTPUT);
+  pinMode(MOTOR_LB, OUTPUT);
+  pinMode(MOTOR_RB, OUTPUT);
+  pinMode(MOTOR_LR, INPUT_PULLUP);
+  pinMode(MOTOR_RR, INPUT_PULLUP);
   attachInterrupt(digitalPinToInterrupt(MOTOR_LR), rotateLR, CHANGE); //interrupt activates when rotation sensor changes
   attachInterrupt(digitalPinToInterrupt(MOTOR_RR), rotateRR, CHANGE); //interrupt activates when rotation sensor changes
 }
@@ -31,7 +37,7 @@ void setup()
 void loop() 
 {
   goForwards(255);
-  delay(600);
+  delay(9000);
   stopDriving();
   delay(1000);
 }
@@ -39,33 +45,42 @@ void loop()
 // Counts the interrupts of the rotation sensor for the left wheel
 void rotateLR()
 {
-  int left_reading;
-  unsigned long time = millis();
-  if (time - LRotationTime >= debounce)
+  static unsigned long timer;
+  static bool lastState;
+  noInterrupts();
+  if (millis() > timer)
   {
-    LRRotations++;
-    LRotationTime = time;
-    left_reading = digitalRead(MOTOR_LR);
-    Serial.print("Analog= ");
-    Serial.println(left_reading);
+    bool state = digitalRead(MOTOR_LR);
+    if(state != lastState)
+    {
+      LRRotations++;
+      lastState = state;
+    }
+    timer = millis() + debounce;
   }
+  interrupts();
 }
+
 
 // Counts the interrupts of the rotation sensor for the right wheel
 void rotateRR() 
 {
-  int Right_A0;
-  int Right_D0;
-  unsigned long time = millis();
-  if (time - RRotationTime >= debounce)
+  static unsigned long timer;
+  static bool lastState;
+  noInterrupts();
+  if (millis() > timer)
   {
-    RRRotations++;
-    RRotationTime = time;
-    Right_D0 = digitalRead(MOTOR_RR);
-    Serial.print("Digital=");
-    Serial.println(Right_D0);
+    bool state = digitalRead(MOTOR_RR);
+    if(state != lastState)
+    {
+      RRRotations++;
+      lastState = state;
+    }
+    timer = millis() + debounce;
   }
+  interrupts();
 }
+
 
 // Makes the relaybot drive in a straight line forward
 // TODO: Make the robot drive a certain speed, calibrated with rotation sensor
@@ -80,17 +95,6 @@ void goForwards(int speed)
   analogWrite(MOTOR_RF, MOTOR_R_FULL_SPEED);
   digitalWrite(MOTOR_LB, MOTOR_STOP);
   digitalWrite(MOTOR_RB, MOTOR_STOP);
-
-   // unsigned long testing = millis() + 600; // Testing for 5 sec, 10 sec and it drives off the table
-    //while (millis() < testing) 
-    //{
-      //Serial.print("Left: ");
-      //Serial.print(LRRotations);
-      //Serial.print("  Right: ");
-      //Serial.println(RRRotations);
-      //delay(300); // Prints every 500 ms
-    //}
-  //stopDriving();
 }
 
 // Makes the relaybot drive in a straight line backwards
@@ -115,6 +119,3 @@ void stopDriving()
   analogWrite(MOTOR_LF, MOTOR_STOP);
   analogWrite(MOTOR_RF, MOTOR_STOP); 
 }
-
-
-
