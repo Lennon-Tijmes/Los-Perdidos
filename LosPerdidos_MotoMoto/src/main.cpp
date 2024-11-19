@@ -14,69 +14,60 @@
 #define trigpin 12
 #define echopin 11
 
-const int sensorPins[] = {A0, A1, A2, A3, A4, A5, A6, A7};  // Line sensors
-const int sensorCount = sizeof(sensorPins) / sizeof(sensorPins[0]);
-const int threshold = 10; // Distance threshold in cm for obstacle detection
+long duration, distance;
+
 
 void setup() {
-    // Ultrasonic sensor pins
-  pinMode(trigpin, OUTPUT); // Trig pin as output
-  pinMode(echopin, INPUT);  // Echo pin as input
-
   pinMode(motorLF, OUTPUT);
   pinMode(motorRF, OUTPUT);
   pinMode(motorLB, OUTPUT);
   pinMode(motorRB, OUTPUT);
-    // Line sensor pins
-  for (int i = 0; i < sensorCount; i++) {
-    pinMode(sensorPins[i], INPUT);
-  }
-  Serial.begin(9600); // Initialize serial communication
+
+  pinMode(trigpin, OUTPUT); // Trig pin as output
+  pinMode(echopin, INPUT);  // Echo pin as input
 }
 
+void loop() {
 
-int getDistance() {
-  // Function to measure distance using the ultrasonic sensor
   digitalWrite(trigpin, LOW);
-  delayMicroseconds(2);
-  digitalWrite(trigpin, HIGH);
+  delayMicroseconds(2);   
+  digitalWrite(trigpin, HIGH);     // send waves for 10 us
   delayMicroseconds(10);
-  digitalWrite(trigpin, LOW);
+  duration = pulseIn(echopin, HIGH); // receive reflected waves
+  distance = duration / 58.2;   // convert to distance
+  delay(10);
 
-  long duration = pulseIn(echopin, HIGH);
-  int distance = duration * 0.034 / 2; // Convert to cm
-  return distance;
+  if (distance > 11)            
+{
+  digitalWrite(motorLF, motorLFFullSpeed);
+  digitalWrite(motorRF, motorRFFullSpeed);
+  digitalWrite(motorLB, motorStop);
+  digitalWrite(motorRB, motorStop);
 }
-void PassObject() {
-  stopBot();
-  delay(500);
-  goRight();
-  delay(700);
-  goForwards();
-  delay(1000);
-  goLeft();
-  delay(700);
-  followLine();
-}
-void followLine() {
-  int error = 0;
-  int baseSpeed = 255; // Base speed for motors
+ else 
+  {
+    digitalWrite(motorRB, motorStop);
+    digitalWrite(motorLB, motorStop);
+    digitalWrite(motorLF, motorStop);
+    digitalWrite(motorRF, motorStop);
+    delay(500);
+    digitalWrite(motorLB, motorLBFullSpeed);
+    digitalWrite(motorRB, motorRBFullSpeed);
+    digitalWrite(motorLF, motorStop);
+    digitalWrite(motorRF, motorStop);
+    delay(500);
+    digitalWrite(motorRB, motorStop);
+    digitalWrite(motorLB, motorStop);
+    digitalWrite(motorLF, motorStop);
+    digitalWrite(motorRF, motorStop);
+    delay(100);  
+    digitalWrite(motorLF, motorLFFullSpeed);
+    digitalWrite(motorRF, motorRHalfSpeed);
+    digitalWrite(motorLB, motorStop);
+    digitalWrite(motorRB, motorStop);  
+    delay(500);
 
-  // Read sensors and calculate error
-  for (int i = 0; i < sensorCount; i++) {
-    int sensorValue = analogRead(sensorPins[i]);
-    if (sensorValue > 500) { // Adjust this threshold as needed
-      error += (i - sensorCount / 2); // Center the error calculation
-    }
   }
-
-  int correction = error * 10; // Adjust correction factor as needed
-  int LSpeed = constrain(baseSpeed - correction, 0, 255);
-  int RSpeed = constrain(baseSpeed + correction, 0, 255);
-
-  // Set motor speeds
-  analogWrite(motorLF, LSpeed);
-  analogWrite(motorRF, RSpeed);
 }
 
 void goForwards()
@@ -133,14 +124,10 @@ void stopBot()
   analogWrite(motorLF, motorStop);
   analogWrite(motorRF, motorStop);
 }
-void loop() {
-  int distance = getDistance();
-  if (distance < threshold) {
-    PassObject(); // Call the function to pass the object
-  } else {
-    followLine(); // Follow the line if no object is detected
-    
-  }
+
+void objectAvoidance()
+{
+
 }
 /*
   goForwards();
@@ -151,6 +138,7 @@ void loop() {
   delay(2000);
   goLeft();
   delay(2000);
-  rotateLeft();
-  delay(500);
+  rotateRight();
+  delay(525);
+  stopBot();
 */
