@@ -25,6 +25,7 @@ void setup() {
 
   pinMode(trigpin, OUTPUT); // Trig pin as output
   pinMode(echopin, INPUT);  // Echo pin as input
+
 }
 
 void loop() {
@@ -39,10 +40,7 @@ void loop() {
 
   if (distance > 11)            
 {
-  digitalWrite(motorLF, motorLFFullSpeed);
-  digitalWrite(motorRF, motorRFFullSpeed);
-  digitalWrite(motorLB, motorStop);
-  digitalWrite(motorRB, motorStop);
+ goForwards();
 }
  else 
   {
@@ -51,22 +49,41 @@ void loop() {
     digitalWrite(motorLF, motorStop);
     digitalWrite(motorRF, motorStop);
     delay(500);
-    digitalWrite(motorLB, motorLBFullSpeed);
-    digitalWrite(motorRB, motorRBFullSpeed);
-    digitalWrite(motorLF, motorStop);
-    digitalWrite(motorRF, motorStop);
+    analogWrite(motorRB, motorRBFullSpeed);
+    analogWrite(motorLB, motorStop);
+    analogWrite(motorLF, motorLFFullSpeed);
+    analogWrite(motorRF, motorStop);
     delay(500);
-    digitalWrite(motorRB, motorStop);
-    digitalWrite(motorLB, motorStop);
-    digitalWrite(motorLF, motorStop);
-    digitalWrite(motorRF, motorStop);
-    delay(100);  
-    digitalWrite(motorLF, motorLFFullSpeed);
-    digitalWrite(motorRF, motorRHalfSpeed);
-    digitalWrite(motorLB, motorStop);
-    digitalWrite(motorRB, motorStop);  
+    analogWrite(motorLF, motorLFFullSpeed);
+    analogWrite(motorRF, motorRFFullSpeed);
+    analogWrite(motorLB, motorStop);
+    analogWrite(motorRB, motorStop);
+    delay(1000);  
+    analogWrite(motorLB, motorLBFullSpeed);
+    analogWrite(motorRB, motorStop);
+    analogWrite(motorRF, motorRFFullSpeed);
+    analogWrite(motorLF, motorStop);
     delay(500);
-
+    analogWrite(motorLF, motorLFFullSpeed);
+    analogWrite(motorRF, motorRFFullSpeed);
+    analogWrite(motorLB, motorStop);
+    analogWrite(motorRB, motorStop);
+    delay(1000);  
+    analogWrite(motorLB, motorLBFullSpeed);
+    analogWrite(motorRB, motorStop);
+    analogWrite(motorRF, motorRFFullSpeed);
+    analogWrite(motorLF, motorStop);
+    delay(500);
+    analogWrite(motorLF, motorLFFullSpeed);
+    analogWrite(motorRF, motorRFFullSpeed);
+    analogWrite(motorLB, motorStop);
+    analogWrite(motorRB, motorStop);
+    delay(1000);
+    analogWrite(motorRB, motorRBFullSpeed);
+    analogWrite(motorLB, motorStop);
+    analogWrite(motorLF, motorLFFullSpeed);
+    analogWrite(motorRF, motorStop);
+    delay(500);
   }
 }
 
