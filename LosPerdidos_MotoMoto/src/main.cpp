@@ -135,7 +135,7 @@ void stopBot()
 }
 void loop() {
   int distance = getDistance();
-  if (distance < threshold) {
+  if (distance < 20) {
     PassObject(); // Call the function to pass the object
   } else {
     followLine(); // Follow the line if no object is detected
