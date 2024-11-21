@@ -19,6 +19,7 @@
 // Section for the Ultrasonic distance sensor
 #define SONAR_TRIG_PIN     12   // Sonar trig pin
 #define SONAR_ECHO_PIN     13   // Sonar echo pin 
+const int lineSensor[] = {A0, A1, A2, A3, A4, A5, A6, A7}; // array for the line line sensor pins
 long startTime = 0;
 long duration = 0;
 bool trigStarted = false;
@@ -44,6 +45,9 @@ void setup()
   pinMode(GRIPPER_PIN, OUTPUT);
   pinMode(SONAR_TRIG_PIN, OUTPUT);
   pinMode(SONAR_ECHO_PIN, INPUT);
+  for (int i = 0; i < 7; i++) {
+    pinMode(lineSensor[i], INPUT);  // sets every linesensor pin on the correct pinmode
+  }
   setGripper(GRIPPER_OPEN);
   attachInterrupt(digitalPinToInterrupt(MOTOR_LR), rotateLR, CHANGE); //interrupt activates when rotation sensor changes
   attachInterrupt(digitalPinToInterrupt(MOTOR_RR), rotateRR, CHANGE); //interrupt activates when rotation sensor changes
@@ -52,20 +56,31 @@ void setup()
 // Code to keep repeating
 void loop() 
 {
-  goForwards(255);
-  delay(2000);
+  while(distance > 4)
+  {
+    goForwards(200);
+    readSonar();
+  }
+  setGripper(GRIPPER_CLOSED);
   stopDriving();
-  delay(1000);
-  goBackwards(255);
-  delay(2000);
   rotateRight();
+  delay(500);
+  stopDriving();
+  goForwards(200);
   delay(1000);
+  stopDriving();
+  delay(10);
+  setGripper(GRIPPER_OPEN);
+  goBackwards(200);
+  delay(1000);
+  stopDriving();
   rotateLeft();
+  delay(500);
+  stopDriving();
+  goForwards(200);
   delay(1000);
-  turnRight();
-  delay(1000);
-  turnLeft();
-  delay(1000);
+  stopDriving();
+  delay(100000);
 }
 
 // Counts the interrupts of the rotation sensor for the left wheel
