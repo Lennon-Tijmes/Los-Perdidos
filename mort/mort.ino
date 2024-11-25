@@ -19,36 +19,36 @@
 // Section for the Ultrasonic distance sensor
 #define SONAR_TRIG_PIN     12    // Sonar trig pin
 #define SONAR_ECHO_PIN     13    // Sonar echo pin 
-int distance = 999;
+int distance = 999;              // Value for distance from distance sensor, set to 999 for initialization
 
 // Section for the line sensor
 const int LINE_SENSOR[] = {A0, A1, A2, A3, A4, A5, A6, A7}; // Array for line sensor pins
 int lineSensorValue[8] = {0};                               // Array for line sensor values
 
 // Section for the Rotation values
-int LRRotations = 0;
-int RRRotations = 0;
-const unsigned long debounce = 10;
+int LRRotations = 0;                // Amount of rotation sensor changes on the left wheel
+int RRRotations = 0;                // Amount of rotation sensor changes on the left wheel
+const unsigned long debounce = 10;  // Debounce time for more accurate rotation sensor reading
 
 // Code to run once
 void setup() 
 {
-  Serial.begin(9600);
-  pinMode(MOTOR_LF, OUTPUT);
-  pinMode(MOTOR_RF, OUTPUT);
-  pinMode(MOTOR_LB, OUTPUT);
-  pinMode(MOTOR_RB, OUTPUT);
-  pinMode(MOTOR_LR, INPUT_PULLUP);
-  pinMode(MOTOR_RR, INPUT_PULLUP);
-  pinMode(GRIPPER_PIN, OUTPUT);
-  pinMode(SONAR_TRIG_PIN, OUTPUT);
-  pinMode(SONAR_ECHO_PIN, INPUT);
+  Serial.begin(9600);               // Begin the serial monitor
+  pinMode(MOTOR_LF, OUTPUT);        // Initialize the left motor forwards as output
+  pinMode(MOTOR_RF, OUTPUT);        // Initialize the right motor forwards as output
+  pinMode(MOTOR_LB, OUTPUT);        // Initialize the left motor backwards as output
+  pinMode(MOTOR_RB, OUTPUT);        // Initialize the right motor backwards as output
+  pinMode(MOTOR_LR, INPUT_PULLUP);  // Initialize the rotation sensor of the left wheel as a pullup input
+  pinMode(MOTOR_RR, INPUT_PULLUP);  // Initialize the rotation sensor of the right wheel as a pullup input
+  pinMode(GRIPPER_PIN, OUTPUT);     // Initialize the gripper pin as output
+  pinMode(SONAR_TRIG_PIN, OUTPUT);  // Initialize the sonar trig pin as output
+  pinMode(SONAR_ECHO_PIN, INPUT);   // Initialize the sonar echo pin as input
   for (int i = 0; i < 7; i++) {
-    pinMode(LINE_SENSOR[i], INPUT);  // sets every linesensor pin on the correct pinmode
+    pinMode(LINE_SENSOR[i], INPUT); // Initialize the line sensor pins as input
   }
-  setGripper(GRIPPER_OPEN);
-  attachInterrupt(digitalPinToInterrupt(MOTOR_LR), rotateLR, CHANGE); //interrupt activates when rotation sensor changes
-  attachInterrupt(digitalPinToInterrupt(MOTOR_RR), rotateRR, CHANGE); //interrupt activates when rotation sensor changes
+  setGripper(GRIPPER_OPEN);         // Set the gripper open at the start
+  attachInterrupt(digitalPinToInterrupt(MOTOR_LR), rotateLR, CHANGE); // Interrupt activates when left wheel rotation sensor changes
+  attachInterrupt(digitalPinToInterrupt(MOTOR_RR), rotateRR, CHANGE); // Interrupt activates when right wheel rotation sensor changes
 }
 
 // Code to keep repeating
@@ -279,6 +279,7 @@ void readSonar()
   }
 }
 
+// Read all the line sensor pins
 void readLineSensor() 
 {
   for (int i = 0; i < 8; i++) 
