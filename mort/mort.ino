@@ -17,8 +17,8 @@
 #define GRIPPER_CLOSED     1010  // Value for gripper being closed
 
 // Section for the Ultrasonic distance sensor
-#define SONAR_TRIG_PIN     12   // Sonar trig pin
-#define SONAR_ECHO_PIN     13   // Sonar echo pin 
+#define SONAR_TRIG_PIN     12    // Sonar trig pin
+#define SONAR_ECHO_PIN     13    // Sonar echo pin 
 int distance = 999;
 
 // Section for the line sensor
