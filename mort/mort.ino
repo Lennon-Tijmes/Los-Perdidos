@@ -43,7 +43,8 @@ void setup()
   pinMode(GRIPPER_PIN, OUTPUT);     // Initialize the gripper pin as output
   pinMode(SONAR_TRIG_PIN, OUTPUT);  // Initialize the sonar trig pin as output
   pinMode(SONAR_ECHO_PIN, INPUT);   // Initialize the sonar echo pin as input
-  for (int i = 0; i < 7; i++) {
+  for (int i = 0; i < 7; i++) 
+  {
     pinMode(LINE_SENSOR[i], INPUT); // Initialize the line sensor pins as input
   }
   setGripper(GRIPPER_OPEN);         // Set the gripper open at the start
