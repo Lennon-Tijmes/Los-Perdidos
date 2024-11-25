@@ -12,20 +12,18 @@
 #define MOTOR_RR           3    // Right rotation sensor
 
 // Section for the servo motor
-#define GRIPPER_PIN        4    // Pin for the servo gripper
-#define GRIPPER_OPEN       1600 // Value for gripper being open
+#define GRIPPER_PIN        4     // Pin for the servo gripper
+#define GRIPPER_OPEN       1600  // Value for gripper being open
 #define GRIPPER_CLOSED     1010  // Value for gripper being closed
 
 // Section for the Ultrasonic distance sensor
 #define SONAR_TRIG_PIN     12   // Sonar trig pin
 #define SONAR_ECHO_PIN     13   // Sonar echo pin 
-const int lineSensor[] = {A0, A1, A2, A3, A4, A5, A6, A7}; // array for the line line sensor pins
-long startTime = 0;
-long duration = 0;
-bool trigStarted = false;
-bool echoStarted = false;
-bool echoEnded = false;
 int distance = 999;
+
+// Section for the line sensor
+const int LINE_SENSOR[] = {A0, A1, A2, A3, A4, A5, A6, A7}; // Array for line sensor pins
+int lineSensorValue[8] = {0};                               // Array for line sensor values
 
 // Section for the Rotation values
 int LRRotations = 0;
@@ -46,7 +44,7 @@ void setup()
   pinMode(SONAR_TRIG_PIN, OUTPUT);
   pinMode(SONAR_ECHO_PIN, INPUT);
   for (int i = 0; i < 7; i++) {
-    pinMode(lineSensor[i], INPUT);  // sets every linesensor pin on the correct pinmode
+    pinMode(LINE_SENSOR[i], INPUT);  // sets every linesensor pin on the correct pinmode
   }
   setGripper(GRIPPER_OPEN);
   attachInterrupt(digitalPinToInterrupt(MOTOR_LR), rotateLR, CHANGE); //interrupt activates when rotation sensor changes
@@ -56,31 +54,7 @@ void setup()
 // Code to keep repeating
 void loop() 
 {
-  while(distance > 4)
-  {
-    goForwards(200);
-    readSonar();
-  }
-  setGripper(GRIPPER_CLOSED);
-  stopDriving();
-  rotateRight();
-  delay(500);
-  stopDriving();
-  goForwards(200);
-  delay(1000);
-  stopDriving();
-  delay(10);
-  setGripper(GRIPPER_OPEN);
-  goBackwards(200);
-  delay(1000);
-  stopDriving();
-  rotateLeft();
-  delay(500);
-  stopDriving();
-  goForwards(200);
-  delay(1000);
-  stopDriving();
-  delay(100000);
+  readLineSensor(); 
 }
 
 // Counts the interrupts of the rotation sensor for the left wheel
@@ -255,6 +229,12 @@ void setGripper(int pulse)
 // Reads the sonar and returns the distance in centimeters
 void readSonar()
 {
+  static long startTime = 0;
+  static long duration = 0;
+  static bool trigStarted = false;
+  static bool echoStarted = false;
+  static bool echoEnded = false;
+
    // Clears the trig pin
   if (!trigStarted) 
   {
@@ -296,5 +276,13 @@ void readSonar()
     trigStarted = false;
     echoStarted = false;
     echoEnded = false;
+  }
+}
+
+void readLineSensor() 
+{
+  for (int i = 0; i < 8; i++) 
+  {
+    lineSensorValue[i] = analogRead(LINE_SENSOR[i]);
   }
 }
