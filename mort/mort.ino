@@ -17,9 +17,12 @@
 #define GRIPPER_CLOSED     1010  // Value for gripper being closed
 
 // Section for the Ultrasonic distance sensor
-#define SONAR_TRIG_PIN     12    // Sonar trig pin
-#define SONAR_ECHO_PIN     13    // Sonar echo pin 
-int distance = 999;              // Value for distance from distance sensor, set to 999 for initialization
+#define SONAR_TRIG_PIN_FORWARD     12    // Sonar forward trig pin
+#define SONAR_ECHO_PIN_FORWARD     13    // Sonar forward echo pin 
+#define SONAR_TRIG_PIN_RIGHT       5     // Sonar forward trig pin
+#define SONAR_ECHO_PIN_RIGHT       6     // Sonar forward echo pin 
+int distanceForwards = 999;              // Value for distance from distance sensor, set to 999 for initialization
+int distanceRight = 999;                 // Value for distance from distance sensor, set to 999 for initialization
 
 // Section for the line sensor
 const int LINE_SENSOR[] = {A0, A1, A2, A3, A4, A5, A6, A7}; // Array for line sensor pins
@@ -33,29 +36,33 @@ const unsigned long debounce = 10;  // Debounce time for more accurate rotation 
 // Code to run once
 void setup() 
 {
-  Serial.begin(9600);               // Begin the serial monitor
-  pinMode(MOTOR_LF, OUTPUT);        // Initialize the left motor forwards as output
-  pinMode(MOTOR_RF, OUTPUT);        // Initialize the right motor forwards as output
-  pinMode(MOTOR_LB, OUTPUT);        // Initialize the left motor backwards as output
-  pinMode(MOTOR_RB, OUTPUT);        // Initialize the right motor backwards as output
-  pinMode(MOTOR_LR, INPUT_PULLUP);  // Initialize the rotation sensor of the left wheel as a pullup input
-  pinMode(MOTOR_RR, INPUT_PULLUP);  // Initialize the rotation sensor of the right wheel as a pullup input
-  pinMode(GRIPPER_PIN, OUTPUT);     // Initialize the gripper pin as output
-  pinMode(SONAR_TRIG_PIN, OUTPUT);  // Initialize the sonar trig pin as output
-  pinMode(SONAR_ECHO_PIN, INPUT);   // Initialize the sonar echo pin as input
+  Serial.begin(9600);                                                 // Begin the serial monitor
+  pinMode(MOTOR_LF, OUTPUT);                                          // Initialize the left motor forwards as output
+  pinMode(MOTOR_RF, OUTPUT);                                          // Initialize the right motor forwards as output
+  pinMode(MOTOR_LB, OUTPUT);                                          // Initialize the left motor backwards as output
+  pinMode(MOTOR_RB, OUTPUT);                                          // Initialize the right motor backwards as output
+  pinMode(MOTOR_LR, INPUT_PULLUP);                                    // Initialize the rotation sensor of the left wheel as a pullup input
+  pinMode(MOTOR_RR, INPUT_PULLUP);                                    // Initialize the rotation sensor of the right wheel as a pullup input
+  pinMode(GRIPPER_PIN, OUTPUT);                                       // Initialize the gripper pin as output
+  pinMode(SONAR_TRIG_PIN_FORWARD, OUTPUT);                            // Initialize the sonar trig pin as output
+  pinMode(SONAR_ECHO_PIN_FORWARD, INPUT);                             // Initialize the sonar echo pin as input
+  pinMode(SONAR_TRIG_PIN_RIGHT, OUTPUT);                              // Initialize the sonar trig pin as output
+  pinMode(SONAR_ECHO_PIN_RIGHT, INPUT);                               // Initialize the sonar echo pin as input
   for (int i = 0; i < 7; i++) 
   {
-    pinMode(LINE_SENSOR[i], INPUT); // Initialize the line sensor pins as input
+    pinMode(LINE_SENSOR[i], INPUT);                                   // Initialize the line sensor pins as input
   }
-  setGripper(GRIPPER_OPEN);         // Set the gripper open at the start
+  setGripper(GRIPPER_OPEN);                                           // Set the gripper open at the start
   attachInterrupt(digitalPinToInterrupt(MOTOR_LR), rotateLR, CHANGE); // Interrupt activates when left wheel rotation sensor changes
   attachInterrupt(digitalPinToInterrupt(MOTOR_RR), rotateRR, CHANGE); // Interrupt activates when right wheel rotation sensor changes
+  readSonarForward();                                                 // Set the distance accuratly
+  readSonarRight();                                                   // Set the distance accuratly
 }
 
 // Code to keep repeating
 void loop() 
 {
-  readLineSensor(); 
+  followRightWall();
 }
 
 // Counts the interrupts of the rotation sensor for the left wheel
@@ -102,10 +109,6 @@ void goForwards(int speed)
 {
   LRRotations = 0;
   RRRotations = 0;
-  Serial.print("Left: ");
-  Serial.print(LRRotations);
-  Serial.print("  Right: ");
-  Serial.println(RRRotations);
   analogWrite(MOTOR_LF, MOTOR_L_FULL_SPEED);
   analogWrite(MOTOR_RF, MOTOR_R_FULL_SPEED);
   digitalWrite(MOTOR_LB, MOTOR_STOP);
@@ -125,10 +128,6 @@ void goBackwards(int speed)
 // Stops all the motors
 void stopDriving()
 {
-  Serial.print("Left: ");
-  Serial.print(LRRotations);
-  Serial.print("  Right: ");
-  Serial.println(RRRotations);
   digitalWrite(MOTOR_LB, MOTOR_STOP);
   digitalWrite(MOTOR_RB, MOTOR_STOP);
   analogWrite(MOTOR_LF, MOTOR_STOP);
@@ -145,13 +144,13 @@ void rotateRight()
   // TODO: make the magic number less magical 
   while (RRRotations < 12)
   {
-    Serial.print("Right:"); 
-    Serial.println(RRRotations);
     digitalWrite(MOTOR_LB, MOTOR_STOP);
     digitalWrite(MOTOR_RB, 1);
     analogWrite(MOTOR_LF, MOTOR_L_FULL_SPEED);
     analogWrite(MOTOR_RF, MOTOR_STOP); 
+    Serial.println("panicRight");
   }
+  Serial.println("goodRight");
   stopDriving();
 }
 
@@ -165,13 +164,13 @@ void rotateLeft()
   // TODO: make the magic number less magical 
   while (LRRotations < 12)
   {
-    Serial.print("Left:");
-    Serial.println(LRRotations); 
     digitalWrite(MOTOR_RB, MOTOR_STOP);
     digitalWrite(MOTOR_LB, 1);
     analogWrite(MOTOR_RF, MOTOR_L_FULL_SPEED);
     analogWrite(MOTOR_LF, MOTOR_STOP); 
+    Serial.println("panicLeft");
   }
+  Serial.println("GoodLeft");
   stopDriving();
 }
 
@@ -183,10 +182,6 @@ void turnLeft()
   RRRotations = 0;
   while (LRRotations < 60 && RRRotations < 50)
   {
-    Serial.print("Left: ");
-    Serial.print(LRRotations);
-    Serial.print("  Right: ");
-    Serial.println(RRRotations);
     digitalWrite(MOTOR_RB, MOTOR_STOP);
     digitalWrite(MOTOR_LB, MOTOR_STOP);
     analogWrite(MOTOR_RF, MOTOR_R_FULL_SPEED);
@@ -204,10 +199,6 @@ void turnRight()
   RRRotations = 0;
   while (LRRotations < 50 && RRRotations < 60)
   {
-    Serial.print("Left: ");
-    Serial.print(LRRotations);
-    Serial.print("  Right: ");
-    Serial.println(RRRotations);
     digitalWrite(MOTOR_RB, MOTOR_STOP);
     digitalWrite(MOTOR_LB, MOTOR_STOP);
     analogWrite(MOTOR_RF, MOTOR_R_HALF_SPEED);
@@ -227,8 +218,8 @@ void setGripper(int pulse)
   }
 }
 
-// Reads the sonar and returns the distance in centimeters
-void readSonar()
+// Reads the sonar forward and returns the distance in centimeters
+void readSonarForward()
 {
   static long startTime = 0;
   static long duration = 0;
@@ -239,7 +230,7 @@ void readSonar()
    // Clears the trig pin
   if (!trigStarted) 
   {
-    digitalWrite(SONAR_TRIG_PIN, LOW);
+    digitalWrite(SONAR_TRIG_PIN_FORWARD, LOW);
     startTime = micros();
     trigStarted = true;
   }
@@ -247,7 +238,7 @@ void readSonar()
   // Turn trig pin on after 2 microseconds 
   if (trigStarted && (micros() - startTime >= 2))
    {
-    digitalWrite(SONAR_TRIG_PIN, HIGH);
+    digitalWrite(SONAR_TRIG_PIN_FORWARD, HIGH);
     trigStarted = false;
     echoStarted = true;
     startTime = micros(); 
@@ -256,18 +247,73 @@ void readSonar()
   // Turn trig pin off after 10 microseconds
   if (echoStarted && (micros() - startTime >= 10)) 
   {
-    digitalWrite(SONAR_TRIG_PIN, LOW);
+    digitalWrite(SONAR_TRIG_PIN_FORWARD, LOW);
     echoStarted = false;
   }
 
   // Reads the echoPin, returns the sound wave travel time in microseconds
   if (!echoEnded) {
-    duration = pulseIn(SONAR_ECHO_PIN, HIGH);
+    duration = pulseIn(SONAR_ECHO_PIN_FORWARD, HIGH);
     if (duration > 0) 
     {
       echoEnded = true;
-      distance = duration * 0.034 / 2; // Calculate distance in cm
-      Serial.println(distance);
+      distanceForwards = duration * 0.034 / 2; // Calculate distance in cm
+      Serial.print("distance forward: ");
+      Serial.println(distanceForwards);
+    }
+  }
+
+  // Reset the variables
+  if (echoEnded) 
+  {
+    trigStarted = false;
+    echoStarted = false;
+    echoEnded = false;
+  }
+}
+
+// Reads the sonar right and returns the distance in centimeters
+void readSonarRight()
+{
+  static long startTime = 0;
+  static long duration = 0;
+  static bool trigStarted = false;
+  static bool echoStarted = false;
+  static bool echoEnded = false;
+
+   // Clears the trig pin
+  if (!trigStarted) 
+  {
+    digitalWrite(SONAR_TRIG_PIN_RIGHT, LOW);
+    startTime = micros();
+    trigStarted = true;
+  }
+
+  // Turn trig pin on after 2 microseconds 
+  if (trigStarted && (micros() - startTime >= 2))
+   {
+    digitalWrite(SONAR_TRIG_PIN_RIGHT, HIGH);
+    trigStarted = false;
+    echoStarted = true;
+    startTime = micros(); 
+  }
+
+  // Turn trig pin off after 10 microseconds
+  if (echoStarted && (micros() - startTime >= 10)) 
+  {
+    digitalWrite(SONAR_TRIG_PIN_RIGHT, LOW);
+    echoStarted = false;
+  }
+
+  // Reads the echoPin, returns the sound wave travel time in microseconds
+  if (!echoEnded) {
+    duration = pulseIn(SONAR_ECHO_PIN_RIGHT, HIGH);
+    if (duration > 0) 
+    {
+      echoEnded = true;
+      distanceRight = duration * 0.034 / 2; // Calculate distance in cm
+      Serial.print("distance right: ");
+      Serial.println(distanceRight);
     }
   }
 
@@ -286,5 +332,33 @@ void readLineSensor()
   for (int i = 0; i < 8; i++) 
   {
     lineSensorValue[i] = analogRead(LINE_SENSOR[i]);
+  }
+}
+
+void followRightWall()
+{
+  readSonarForward();
+  readSonarRight();
+  if (distanceRight > 15)
+  {
+    stopDriving();
+    goForwards(200);
+    delay(500);
+    stopDriving();
+    rotateRight();
+    stopDriving();
+    goForwards(200);
+    delay(500);
+    stopDriving();
+  }
+  else if (distanceForwards < 15)
+  {
+    stopDriving();
+    rotateLeft();
+    stopDriving();
+  }
+  else
+  {
+    goForwards(200);
   }
 }
