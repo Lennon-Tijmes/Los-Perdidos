@@ -5,7 +5,7 @@
 #define MOTOR_RB           8    // Backwards right motor
 #define MOTOR_L_FULL_SPEED 255  // Left motor full speed
 #define MOTOR_L_HALF_SPEED 140  // Left motor half speed
-#define MOTOR_R_FULL_SPEED 255  // Right motor full speed
+#define MOTOR_R_FULL_SPEED 250  // Right motor full speed
 #define MOTOR_R_HALF_SPEED 140  // Right motor half speed
 #define MOTOR_STOP         0    // Motor stopping speed
 #define MOTOR_LR           2    // Left rotation sensor
@@ -36,10 +36,10 @@ void setup()
 // Code to keep repeating
 void loop() 
 {
+  delay(5000);
   goForwards(255);
-  delay(9000);
   stopDriving();
-  delay(1000);
+  delay(10000);
 }
 
 // Counts the interrupts of the rotation sensor for the left wheel
@@ -88,13 +88,28 @@ void goForwards(int speed)
 {
   LRRotations = 0;
   RRRotations = 0;
-  LRotationTime = millis();
-  RRotationTime = millis();
+  static unsigned long timerz = millis();
+  timerz = 0; 
 
-  analogWrite(MOTOR_LF, MOTOR_L_FULL_SPEED);
-  analogWrite(MOTOR_RF, MOTOR_R_FULL_SPEED);
-  digitalWrite(MOTOR_LB, MOTOR_STOP);
-  digitalWrite(MOTOR_RB, MOTOR_STOP);
+  while (LRRotations <= 180 && RRRotations <= 180)
+  {
+    analogWrite(MOTOR_LF, MOTOR_L_FULL_SPEED);
+    analogWrite(MOTOR_RF, MOTOR_R_FULL_SPEED);
+    digitalWrite(MOTOR_LB, MOTOR_STOP);
+    digitalWrite(MOTOR_RB, MOTOR_STOP);
+
+    Serial.print("Left: ");
+    Serial.print(LRRotations);
+    Serial.print("  Right: ");
+    Serial.println(RRRotations);
+  }
+
+  float distancePerPulse = 0.51; // cm/pulse
+  float totalPulses = 180;       // Total pulses (assume both wheels are equal)
+  float totalDistance = totalPulses * distancePerPulse; // Total distance in cm
+
+  Serial.print("Distance: ");
+  Serial.println(totalDistance);
 }
 
 // Makes the relaybot drive in a straight line backwards
