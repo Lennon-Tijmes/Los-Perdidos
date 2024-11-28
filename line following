@@ -1,1 +1,152 @@
+#include "Arduino.h"
 
+// Motor speed definitions
+#define motorLFFullSpeed 255
+#define motorRFFullSpeed 255
+#define motorLBFullSpeed 255
+#define motorRBFullSpeed 255
+#define motorLHalfSpeed 150
+#define motorRHalfSpeed 150
+#define motorStop 0
+
+
+// Motor PWM speed pins (must be PWM-capable pins)
+#define motorLB 11 // motor left backwards
+#define motorRF 9  // motor right forwards
+#define motorLF 10 // motor left forwards
+#define motorRB 3   // motor right backwards
+#define TRIG_PIN 12   
+#define ECHO_PIN 13
+
+
+void setup() 
+{
+  // Set motor direction pins as outputs
+  pinMode(motorLF, OUTPUT);
+  pinMode(motorRF, OUTPUT);
+  pinMode(motorLB, OUTPUT);
+  pinMode(motorRB, OUTPUT);
+  pinMode(TRIG_PIN, OUTPUT);
+  pinMode(ECHO_PIN, INPUT);
+
+  Serial.begin(9600); // For debugging
+
+
+}
+
+void loop() 
+
+{
+   // Measure distance
+  long duration, distance;
+  digitalWrite(TRIG_PIN, LOW);
+  delayMicroseconds(2);             // Ensure trigger is off
+  digitalWrite(TRIG_PIN, HIGH);
+  delayMicroseconds(10);            // Send a 10µs pulse
+  digitalWrite(TRIG_PIN, LOW);
+  duration = pulseIn(ECHO_PIN, HIGH);
+
+  // Calculate distance in cm
+  distance = duration * 0.034 / 2;
+
+  // Debugging output
+  Serial.print("Distance: ");
+  Serial.print(distance);
+  Serial.println(" cm");
+
+  // Check distance
+  if (distance > 0 && distance <= 20) {
+    stopMotors();   // Stop motors if object is close
+    delay(200);
+    turnRigth();
+    delay(1000);
+    moveForwards();
+    delay(200);
+    turnLeft();
+    delay(5000);
+    stopMotors();
+    delay(200);
+    turnRigth();
+    delay(1000);
+
+
+  } else {
+    moveForwards(); // Keep moving forwards otherwise
+/*
+      if it sees black
+      {
+        moveForwards();
+      }
+      else if sees white line on the left
+      {
+        rotRigth();
+        delay(500);
+      }
+      else if 
+      {
+        rotLeft();
+        delay(500);
+      }
+*/
+  }
+
+  delay(100); // Small delay to stabilize readings
+}
+ 
+
+
+void moveForwards() 
+{
+  analogWrite(motorLF, motorLFFullSpeed);
+  analogWrite(motorRF, motorRFFullSpeed);
+  analogWrite(motorLB, motorStop);
+  analogWrite(motorRB, motorStop);
+}
+
+void moveBackwards() 
+{
+  analogWrite(motorLB, motorLBFullSpeed);
+  analogWrite(motorRB, motorRBFullSpeed);
+  analogWrite(motorLF, motorStop);
+  analogWrite(motorRF, motorStop);
+}
+
+void stopMotors() 
+{
+  analogWrite(motorRB, motorStop);
+  analogWrite(motorLB, motorStop);
+  analogWrite(motorLF, motorStop);
+  analogWrite(motorRF, motorStop);
+}
+
+void rotRigth()
+{
+  analogWrite(motorRB, motorLBFullSpeed);
+  analogWrite(motorLB, motorStop);
+  analogWrite(motorLF, motorLBFullSpeed);
+  analogWrite(motorRF, motorStop);
+}
+
+void rotLeft()
+{
+  analogWrite(motorRF, motorLBFullSpeed);
+  analogWrite(motorLF, motorStop);
+  analogWrite(motorLB, motorLBFullSpeed);
+  analogWrite(motorRB, motorStop);
+}
+
+void turnRigth()
+{
+  analogWrite(motorRB, motorStop);
+  analogWrite(motorLB, motorStop);
+  analogWrite(motorLF, motorLFFullSpeed);
+  analogWrite(motorRF, motorRHalfSpeed);
+}
+
+void turnLeft()
+{
+  analogWrite(motorRF, motorRFFullSpeed);
+  analogWrite(motorLF, motorLHalfSpeed);
+  analogWrite(motorLB, motorStop);
+  analogWrite(motorRB, motorStop);
+}
