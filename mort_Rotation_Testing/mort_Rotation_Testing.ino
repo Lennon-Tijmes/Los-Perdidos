@@ -3,9 +3,9 @@
 #define MOTOR_RF           10   // Forwards right motor
 #define MOTOR_LB           7    // Backwards left motor
 #define MOTOR_RB           8    // Backwards right motor
-#define MOTOR_L_FULL_SPEED 255  // Left motor full speed
+#define MOTOR_L_FULL_SPEED 250  // Left motor full speed
 #define MOTOR_L_HALF_SPEED 140  // Left motor half speed
-#define MOTOR_R_FULL_SPEED 250  // Right motor full speed
+#define MOTOR_R_FULL_SPEED 255  // Right motor full speed
 #define MOTOR_R_HALF_SPEED 140  // Right motor half speed
 #define MOTOR_STOP         0    // Motor stopping speed
 #define MOTOR_LR           2    // Left rotation sensor
@@ -15,8 +15,6 @@
 // Section for the Rotation values
 int LRRotations = 0;
 int RRRotations = 0;
-unsigned long LRotationTime = 0;
-unsigned long RRotationTime = 0;
 const unsigned long debounce = 10;
 
 // Code to run once
@@ -36,7 +34,7 @@ void setup()
 // Code to keep repeating
 void loop() 
 {
-  delay(5000);
+  delay(2000);
   goForwards(255);
   stopDriving();
   delay(10000);
@@ -88,15 +86,23 @@ void goForwards(int speed)
 {
   LRRotations = 0;
   RRRotations = 0;
-  static unsigned long timerz = millis();
-  timerz = 0; 
+  unsigned long timerz = millis();
 
-  while (LRRotations <= 180 && RRRotations <= 180)
+  while (LRRotations <= 60 && RRRotations <= 60)
   {
-    analogWrite(MOTOR_LF, MOTOR_L_FULL_SPEED);
-    analogWrite(MOTOR_RF, MOTOR_R_FULL_SPEED);
-    digitalWrite(MOTOR_LB, MOTOR_STOP);
-    digitalWrite(MOTOR_RB, MOTOR_STOP);
+    if (timerz >= 200)
+    {
+      timerz = 0;
+      int difference = RRRotations - LRRotations;
+    
+      int leftSpeed = MOTOR_L_FULL_SPEED - difference;
+      int rightSpeed = MOTOR_R_FULL_SPEED;
+
+      analogWrite(MOTOR_LF, MOTOR_L_FULL_SPEED - difference);
+      analogWrite(MOTOR_RF, MOTOR_R_FULL_SPEED);
+      digitalWrite(MOTOR_LB, MOTOR_STOP);
+      digitalWrite(MOTOR_RB, MOTOR_STOP);
+    }
 
     Serial.print("Left: ");
     Serial.print(LRRotations);
