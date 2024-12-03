@@ -18,8 +18,7 @@
 #define LMOTOR_FULL_SPEED 255
 #define MOTOR_STOP 0
 
-const int sensorPins[] = {A0, A1, A2, A3, A4, A5, A6, A7};  // Line sensors
-const int sensorCount = sizeof(sensorPins) / sizeof(sensorPins[0]);
+
 
 void setup() {
   // Ultrasonic Sensor Pins
@@ -32,10 +31,6 @@ void setup() {
   pinMode(RIGHT_MOTOR_FORWARD, OUTPUT);
   pinMode(RIGHT_MOTOR_BACKWARD, OUTPUT);
 
-  // Line sensor pins
-  for (int i = 0; i < sensorCount; i++) {
-    pinMode(sensorPins[i], INPUT);
-  }
   Serial.begin(9600); // For debugging
 }
 
@@ -55,7 +50,7 @@ void loop() {
   else 
   {
     // No obstacle, keep moving forward
-    followLine();
+    moveForward();
   }
 
   delay(100); // Short delay for stability
@@ -72,45 +67,6 @@ long readDistance() {
   long duration = pulseIn(ECHO_PIN, HIGH);
   long distance = duration * 0.034 / 2; // Convert to cm
   return distance;
-}
-
-// Function to read line sensor values and follow the line
-void followLine() {
-  int sensorValues[sensorCount];
-  int position = 0;
-  int totalValue = 0;
-
-  // Read sensor values
-  for (int i = 0; i < sensorCount; i++) {
-    sensorValues[i] = analogRead(sensorPins[i]);
-    position += sensorValues[i] * (i + 1); // Weighted sum
-    totalValue += sensorValues[i];
-  }
-
-  // Calculate the line position
-  if (totalValue > 0) {
-    position /= totalValue; // Normalize to get the line position
-  } else {
-    position = -1; // No line detected
-  }
-
-  Serial.print("Line Position: ");
-  Serial.println(position);
-
-  // Control motors based on the line position
-  if (position == -1) {
-    // No line detected, stop
-    stopMotors();
-  } else if (position < sensorCount / 2) {
-    // Line is to the left
-    goLeft();
-  } else if (position > sensorCount / 2) {
-    // Line is to the right
-    goRight();
-  } else {
-    // Line is centered
-    moveForward();
-  }
 }
 
 // Function to move forward
@@ -181,3 +137,4 @@ void passObject()
   }
 
   //pass the object
+
