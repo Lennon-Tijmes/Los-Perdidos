@@ -19,8 +19,10 @@
 // Section for the Ultrasonic distance sensor
 #define SONAR_TRIG_PIN_FORWARD     12    // Sonar forward trig pin
 #define SONAR_ECHO_PIN_FORWARD     13    // Sonar forward echo pin 
-#define SONAR_TRIG_PIN_RIGHT       5     // Sonar forward trig pin
-#define SONAR_ECHO_PIN_RIGHT       6     // Sonar forward echo pin 
+#define SONAR_TRIG_PIN_RIGHT       5     // Sonar right trig pin
+#define SONAR_ECHO_PIN_RIGHT       6     // Sonar right echo pin 
+#define SONAR_TRIG_PIN_LEFT        0     // Sonar left trig pin
+#define SONAR_ECHO_PIN_LEFT        0     // Sonar left echo pin 
 int distanceForwards = 999;              // Value for distance from distance sensor, set to 999 for initialization
 int distanceRight = 999;                 // Value for distance from distance sensor, set to 999 for initialization
 
@@ -218,111 +220,143 @@ void setGripper(int pulse)
   }
 }
 
-// Reads the sonar forward and returns the distance in centimeters
-void readSonarForward()
+///////////
+// SONAR //
+///////////
+
+int distanceForwards = 0;
+int distanceRight = 0;
+int distanceLeft = 0;
+
+// Sonar settings
+#define SONAR_LEFT_START_SIGNAL    1
+#define SONAR_LEFT_STOP_SIGNAL     2
+#define SONAR_LEFT_READ_SIGNAL     3
+#define SONAR_FORWARD_START_SIGNAL 4
+#define SONAR_FORWARD_STOP_SIGNAL  5
+#define SONAR_FORWARD_READ_SIGNAL  6
+#define SONAR_RIGHT_START_SIGNAL   7
+#define SONAR_RIGHT_STOP_SIGNAL    8
+#define SONAR_RIGHT_READ_SIGNAL    9
+#define SONAR_SIGNAL_DURATION      1
+#define SONAR_RECEIVER_TIMEOUT     15
+
+void updateSonar() 
 {
-  static long startTime = 0;
-  static long duration = 0;
-  static bool trigStarted = false;
-  static bool echoStarted = false;
-  static bool echoEnded = false;
+  static unsigned char sonarPhase = SONAR_LEFT_START_SIGNAL;
+  static unsigned long lastActionTime = millis();
+  static unsigned long currentTime = millis();
+  static unsigned long duration = 0;
 
-   // Clears the trig pin
-  if (!trigStarted) 
+  switch (sonarPhase) 
   {
-    digitalWrite(SONAR_TRIG_PIN_FORWARD, LOW);
-    startTime = micros();
-    trigStarted = true;
-  }
+    // Left sonar
+    // Start pulse on left sonar
+    case SONAR_LEFT_START_SIGNAL:
+      digitalWrite(SONAR_TRIG_PIN_LEFT, HIGH);
+      lastActionTime = currentTime;
+      sonarPhase = SONAR_LEFT_STOP_SIGNAL;
+      break;
 
-  // Turn trig pin on after 2 microseconds 
-  if (trigStarted && (micros() - startTime >= 2))
-   {
-    digitalWrite(SONAR_TRIG_PIN_FORWARD, HIGH);
-    trigStarted = false;
-    echoStarted = true;
-    startTime = micros(); 
-  }
+    // After SONAR_DURATION time stop pulse on left sonar
+    case SONAR_LEFT_STOP_SIGNAL:
+      if (currentTime - lastActionTime > SONAR_SIGNAL_DURATION) 
+      {
+        digitalWrite(SONAR_TRIG_PIN_LEFT, LOW);
+        lastActionTime = currentTime;
+        sonarPhase = SONAR_LEFT_READ_SIGNAL;
+      }
+      break;
 
-  // Turn trig pin off after 10 microseconds
-  if (echoStarted && (micros() - startTime >= 10)) 
-  {
-    digitalWrite(SONAR_TRIG_PIN_FORWARD, LOW);
-    echoStarted = false;
-  }
+    // Read output from left sonar, or move to next phase if no signal
+    case SONAR_LEFT_READ_SIGNAL:
+      duration = pulseIn(SONAR_ECHO_PIN_LEFT, HIGH);
+      if (duration > 0) 
+      {
+        distanceLeft = duration * 0.034 / 2;
+        duration = 0;
+        sonarPhase = SONAR_FORWARD_START_SIGNAL;
+      }
+      else if (currentTime - lastActionTime > SONAR_SIGNAL_RECEIVER_TIMEOUT) 
+      {
+        sonarPhase = SONAR_FORWARD_START_SIGNAL;
+      }
+      break;
 
-  // Reads the echoPin, returns the sound wave travel time in microseconds
-  if (!echoEnded) {
-    duration = pulseIn(SONAR_ECHO_PIN_FORWARD, HIGH);
-    if (duration > 0) 
-    {
-      echoEnded = true;
-      distanceForwards = duration * 0.034 / 2; // Calculate distance in cm
-      Serial.print("distance forward: ");
-      Serial.println(distanceForwards);
-    }
-  }
+    // Forward sonar
+    // Start pulse on forward sonar
+    case SONAR_FORWARD_START_SIGNAL:
+      digitalWrite(SONAR_TRIG_PIN_FORWARD, HIGH);
+      lastActionTime = currentTime;
+      sonarPhase = SONAR_FORWARD_STOP_SIGNAL;
+      break;
 
-  // Reset the variables
-  if (echoEnded) 
-  {
-    trigStarted = false;
-    echoStarted = false;
-    echoEnded = false;
-  }
-}
+    // After SONAR_SIGNAL_DURATION stop pulse on forward sonar
+    case SONAR_FORWARD_STOP_SIGNAL:
+      if (currentTime - lastActionTime > SONAR_SIGNAL_DURATION) 
+      {
+        digitalWrite(SONAR_TRIG_PIN_FORWARD, LOW);
+        lastActionTime = currentTime;
+        sonarPhase = SONAR_FORWARD_READ_SIGNAL;
+      }
+      break;
 
-// Reads the sonar right and returns the distance in centimeters
-void readSonarRight()
-{
-  static long startTime = 0;
-  static long duration = 0;
-  static bool trigStarted = false;
-  static bool echoStarted = false;
-  static bool echoEnded = false;
+    // Read output from forward sonar, or move to next phase if no signal
+    case SONAR_FORWARD_READ_SIGNAL:
+      duration = pulseIn(SONAR_ECHO_PIN_FORWARD, HIGH);
+      if (duration > 0) 
+      {
+        distanceForwards = duration * 0.034 / 2;
+        duration = 0;
+        sonarPhase = SONAR_RIGHT_START_SIGNAL;
+      }
+      else if (currentTime - lastActionTime > SONAR_SIGNAL_RECEIVER_TIMEOUT) 
+      {
+        sonarPhase = SONAR_RIGHT_START_SIGNAL;
+      }
+      break;
 
-   // Clears the trig pin
-  if (!trigStarted) 
-  {
-    digitalWrite(SONAR_TRIG_PIN_RIGHT, LOW);
-    startTime = micros();
-    trigStarted = true;
-  }
+    // Right sonar
+    // Start pulse on right sonar
+    case SONAR_RIGHT_START_SIGNAL:
+      digitalWrite(SONAR_TRIG_PIN_RIGHT, HIGH);
+      lastActionTime = currentTime;
+      sonarPhase = SONAR_RIGHT_STOP_SIGNAL;
+      break;
 
-  // Turn trig pin on after 2 microseconds 
-  if (trigStarted && (micros() - startTime >= 2))
-   {
-    digitalWrite(SONAR_TRIG_PIN_RIGHT, HIGH);
-    trigStarted = false;
-    echoStarted = true;
-    startTime = micros(); 
-  }
+    // After SONAR_SIGNAL_DURATION milliseconds stop pulse on right sonar
+    case SONAR_RIGHT_STOP_SIGNAL:
+      if (currentTime - lastActionTime > SONAR_SIGNAL_DURATION) 
+      {
+        digitalWrite(SONAR_TRIG_PIN_RIGHT, LOW);
+        lastActionTime = currentTime;
+        sonarPhase = SONAR_RIGHT_READ_SIGNAL;
+      }
+      break;
 
-  // Turn trig pin off after 10 microseconds
-  if (echoStarted && (micros() - startTime >= 10)) 
-  {
-    digitalWrite(SONAR_TRIG_PIN_RIGHT, LOW);
-    echoStarted = false;
-  }
+    // Read output from right sonar, or move to next phase if no signal
+    case SONAR_RIGHT_READ_SIGNAL:
+      duration = pulseIn(SONAR_ECHO_PIN_RIGHT, HIGH);
+      if (duration > 0) 
+      {
+        distanceRight = duration * 0.034 / 2;
+        duration = 0;
+        sonarPhase = SONAR_LEFT_START_SIGNAL;
+      }
+      else if (currentTime - lastActionTime > SONAR_SIGNAL_RECEIVER_TIMEOUT) 
+      {
+        sonarPhase = SONAR_LEFT_START_SIGNAL;
+      }
+      break;
 
-  // Reads the echoPin, returns the sound wave travel time in microseconds
-  if (!echoEnded) {
-    duration = pulseIn(SONAR_ECHO_PIN_RIGHT, HIGH);
-    if (duration > 0) 
-    {
-      echoEnded = true;
-      distanceRight = duration * 0.034 / 2; // Calculate distance in cm
-      Serial.print("distance right: ");
-      Serial.println(distanceRight);
-    }
-  }
-
-  // Reset the variables
-  if (echoEnded) 
-  {
-    trigStarted = false;
-    echoStarted = false;
-    echoEnded = false;
+    #ifdef DEBUG
+        Serial.print("Distance Left: ")
+        Serial.println("distanceLeft")
+        Serial.print("Distance Forwards: ")
+        Serial.println("distanceForwards")
+        Serial.print("Distance right: ")
+        Serial.println("distanceRight")
+    #endif
   }
 }
 
