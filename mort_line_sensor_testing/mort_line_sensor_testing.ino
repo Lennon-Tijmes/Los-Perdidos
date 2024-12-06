@@ -12,8 +12,9 @@
 #define MOTOR_RR           3    // Right rotation sensor
 
 // Section for the line sensor
-const int LINE_SENSOR[] = {A0, A1, A2, A3, A4, A5, A6, A7}; // Array for line sensor pins
-int lineSensorValue[8] = {0};                               // Array for line sensor values
+const int LINE_SENSOR[] = {A1, A2, A3, A4, A5, A6}; // Array for line sensor pins
+int lineSensorValue[6] = {0};                               // Array for line sensor values
+#define BLACK_LINE        800 // temporary value for the signoff
 
 // Section for the Rotation values
 int LRRotations = 0;                // Amount of rotation sensor changes on the left wheel
@@ -29,7 +30,7 @@ void setup() {
   pinMode(MOTOR_RB, OUTPUT);        // Initialize the right motor backwards as output
   pinMode(MOTOR_LR, INPUT_PULLUP);  // Initialize the rotation sensor of the left wheel as a pullup input
   pinMode(MOTOR_RR, INPUT_PULLUP);  // Initialize the rotation sensor of the right wheel as a pullup input
-  for (int i = 0; i < 7; i++) 
+  for (int i = 0; i < 5; i++) 
   {
     pinMode(LINE_SENSOR[i], INPUT); // Initialize the line sensor pins as input
   }
@@ -39,12 +40,13 @@ void setup() {
 
 void loop() {
   // put your main code here, to run repeatedly:
+  followLine();
   unsigned long testing = millis();
   static unsigned long print = 0;
   if (testing - print >= 1000)
   {
     print = testing;
-    int sensorValue = analogRead(A7); // Read the line sensor value from A0
+    int sensorValue = analogRead(A6); // Read the line sensor value from A0
     Serial.print("Sensor Value: "); 
     Serial.println(sensorValue); // Print the value to the Serial Monitor
   }
@@ -209,8 +211,48 @@ void turnRight()
 // Read all the line sensor pins
 void readLineSensor() 
 {
-  for (int i = 0; i < 8; i++) 
+  for (int i = 0; i < 6; i++) 
   {
     lineSensorValue[i] = analogRead(LINE_SENSOR[i]);
   }
+}
+
+void followLine()
+{
+  if (analogRead(LINE_SENSOR[2]) > BLACK_LINE || analogRead(LINE_SENSOR[3]) > BLACK_LINE)
+  {
+    goForwards(255);
+  }
+  else if (analogRead(LINE_SENSOR[5]) > BLACK_LINE || analogRead(LINE_SENSOR[4]) > BLACK_LINE || analogRead(LINE_SENSOR[5]) > BLACK_LINE && analogRead(LINE_SENSOR[0]) < BLACK_LINE)
+  {
+    lineTurnLeft();
+  }
+  else if (analogRead(LINE_SENSOR[4]) > BLACK_LINE || analogRead(LINE_SENSOR[5]))
+  {
+    lineTurnLeft();
+  }
+  else if (analogRead(LINE_SENSOR[0]) > BLACK_LINE || analogRead(LINE_SENSOR[1]) > BLACK_LINE || analogRead(LINE_SENSOR[0]) > BLACK_LINE && analogRead(LINE_SENSOR[5]) < BLACK_LINE)
+  {
+    lineTurnRight();
+  }
+  else if (analogRead(LINE_SENSOR[6]) < BLACK_LINE)
+  {
+    lineTurnRight();
+  }
+}
+
+void lineTurnLeft()
+{
+  digitalWrite(MOTOR_RB, 1);
+  digitalWrite(MOTOR_LB, MOTOR_STOP);
+  analogWrite(MOTOR_RF, 0);
+  analogWrite(MOTOR_LF, 255);
+}
+
+void lineTurnRight()
+{
+  digitalWrite(MOTOR_RB, MOTOR_STOP);
+  digitalWrite(MOTOR_LB, 1);
+  analogWrite(MOTOR_RF, 255);
+  analogWrite(MOTOR_LF, 0);
 }
