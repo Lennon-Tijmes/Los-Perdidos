@@ -34,10 +34,10 @@ void setup()
 // Code to keep repeating
 void loop() 
 {
-  delay(2000);
-  goForwards(255);
+  delay(200);
+  goForwards(200);
   stopDriving();
-  delay(10000);
+  delay(2000);
 }
 
 // Counts the interrupts of the rotation sensor for the left wheel
@@ -79,30 +79,23 @@ void rotateRR()
   interrupts();
 }
 
-
-// Makes the relaybot drive in a straight line forward
-// TODO: Make the robot drive a certain speed, calibrated with rotation sensor
-void goForwards(int speed)
+void pseudoForward(int speed)
 {
   LRRotations = 0;
   RRRotations = 0;
-  unsigned long timerz = millis();
 
-  while (LRRotations <= 60 && RRRotations <= 60)
+  while (LRRotations <= 200 && RRRotations <= 200)
   {
-    if (timerz >= 200)
-    {
-      timerz = 0;
-      int difference = RRRotations - LRRotations;
+  
+    int difference = LRRotations - RRRotations;
     
-      int leftSpeed = MOTOR_L_FULL_SPEED - difference;
-      int rightSpeed = MOTOR_R_FULL_SPEED;
+    int leftSpeed = speed - (difference * 20);
+    int rightSpeed = speed;
 
-      analogWrite(MOTOR_LF, MOTOR_L_FULL_SPEED - difference);
-      analogWrite(MOTOR_RF, MOTOR_R_FULL_SPEED);
-      digitalWrite(MOTOR_LB, MOTOR_STOP);
-      digitalWrite(MOTOR_RB, MOTOR_STOP);
-    }
+    analogWrite(MOTOR_LF, leftSpeed);
+    analogWrite(MOTOR_RF, rightSpeed);
+    digitalWrite(MOTOR_LB, MOTOR_STOP);
+    digitalWrite(MOTOR_RB, MOTOR_STOP);
 
     Serial.print("Left: ");
     Serial.print(LRRotations);
@@ -117,6 +110,54 @@ void goForwards(int speed)
   Serial.print("Distance: ");
   Serial.println(totalDistance);
 }
+
+
+
+// Makes the relaybot drive in a straight line forward
+// TODO: Make the robot drive a certain speed, calibrated with rotation sensor
+void goForwards(int speed)
+{
+  unsigned long timerz = millis();
+  LRRotations = 0;
+  RRRotations = 0;
+
+  while (LRRotations <= 60 && RRRotations <= 60)
+  {
+    unsigned long currentTime = millis();
+
+    if (currentTime - timerz >= 200)
+    {
+      timerz = currentTime;
+
+      int difference = RRRotations - LRRotations;
+    
+      int leftSpeed = speed - difference;
+      int rightSpeed = speed;
+
+      leftSpeed = constrain(leftSpeed, 150, 255);
+      rightSpeed = constrain(rightSpeed, 150, 255);
+
+      analogWrite(MOTOR_LF, speed - difference);
+      analogWrite(MOTOR_RF, speed);
+      digitalWrite(MOTOR_LB, MOTOR_STOP);
+      digitalWrite(MOTOR_RB, MOTOR_STOP);
+
+      Serial.print("Left: ");
+      Serial.print(LRRotations);
+      Serial.print("  Right: ");
+      Serial.println(RRRotations);
+    }
+  }
+
+
+  float distancePerPulse = 0.51; // cm/pulse
+  float totalPulses = 60;       // Total pulses (assume both wheels are equal)
+  float totalDistance = totalPulses * distancePerPulse; // Total distance in cm
+
+  Serial.print("Distance: ");
+  Serial.println(totalDistance);
+}
+
 
 // Makes the relaybot drive in a straight line backwards
 // TODO: Make the robot drive a certain speed, calibrated with rotation sensor

@@ -219,12 +219,12 @@ void loop()
 // LINE SENSOR //
 /////////////////
 
-int lineSensorValue[8] = {0, 0, 0, 0, 0, 0, 0, 0}; // Array for line sensor values
+int lineSensorValue[6] = {0, 0, 0, 0, 0, 0}; // Array for line sensor values
 
 // Read all the line sensor pins
 void readLineSensor() 
 {
-  for (unsigned char i = 0; i < 8; i++) 
+  for (unsigned char i = 0; i < 6; i++) 
   {
     lineSensorValue[i] = analogRead(LINE_SENSOR[i]);
   }
@@ -462,13 +462,41 @@ void countRotationsRight()
 #define MOTOR_STOP         0    // Motor stopping speed
 
 // Makes the relaybot drive in a straight line forward
-// TODO: Make the robot drive a certain speed, calibrated with rotation sensor
+// TODO: make the parameters int speed, pulses/cm. 
 void goForwards() 
 {
-  analogWrite(MOTOR_LF, MOTOR_L_FULL_SPEED);
-  analogWrite(MOTOR_RF, MOTOR_R_FULL_SPEED);
-  digitalWrite(MOTOR_LB, MOTOR_STOP);
-  digitalWrite(MOTOR_RB, MOTOR_STOP);
+  unsigned long timerz = millis();
+  int speed = 0; // REMOVE THIS ONCE I ACTUALLY ADJUST ALL THE SWITCH CASE STUFFZ THIS AVOIDS ERROR ATM
+  LRRotations = 0;
+  RRRotations = 0;
+
+  while (LRRotations <= 60 && RRRotations <= 60)
+  {
+    unsigned long currentTime = millis();
+
+    if (currentTime - timerz >= 200)
+    {
+      timerz = currentTime;
+
+      int difference = RRRotations - LRRotations;
+    
+      int leftSpeed = speed - difference;
+      int rightSpeed = speed;
+
+      leftSpeed = constrain(leftSpeed, 150, 255);
+      rightSpeed = constrain(rightSpeed, 150, 255);
+
+      analogWrite(MOTOR_LF, speed - difference);
+      analogWrite(MOTOR_RF, speed);
+      digitalWrite(MOTOR_LB, MOTOR_STOP);
+      digitalWrite(MOTOR_RB, MOTOR_STOP);
+
+      Serial.print("Left: ");
+      Serial.print(LRRotations);
+      Serial.print("  Right: ");
+      Serial.println(RRRotations);
+    }
+  }
 }
 
 // Makes the relaybot drive in a straight line backwards
