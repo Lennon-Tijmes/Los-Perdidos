@@ -463,14 +463,13 @@ void countRotationsRight()
 
 // Makes the relaybot drive in a straight line forward
 // TODO: make the parameters int speed, pulses/cm. 
-void goForwards() 
+void goForwards(int speed) 
 {
   unsigned long timerz = millis();
-  int speed = 0; // REMOVE THIS ONCE I ACTUALLY ADJUST ALL THE SWITCH CASE STUFFZ THIS AVOIDS ERROR ATM
   LRRotations = 0;
   RRRotations = 0;
 
-  while (LRRotations <= 60 && RRRotations <= 60)
+  if (LRRotations <= 60 && RRRotations <= 60)
   {
     unsigned long currentTime = millis();
 
@@ -522,21 +521,31 @@ void stopDriving()
 // TODO: Make it turn correctly
 void rotateRight() 
 {
-  digitalWrite(MOTOR_LB, MOTOR_STOP);
-  digitalWrite(MOTOR_RB, 1);
-  analogWrite(MOTOR_LF, MOTOR_L_FULL_SPEED);
-  analogWrite(MOTOR_RF, MOTOR_STOP); 
+  LRRotations = 0;
+  RRRotations = 0;
+  if (RRRotations < 11)
+  {
+    digitalWrite(MOTOR_LB, MOTOR_STOP);
+    digitalWrite(MOTOR_RB, 1);
+    analogWrite(MOTOR_LF, MOTOR_L_FULL_SPEED);
+    analogWrite(MOTOR_RF, MOTOR_STOP); 
+  }
 }
 
 // Rotate the relaybot on its axis to the left
 // TODO: Make it turn correctly
 void rotateLeft()
 {
-  digitalWrite(MOTOR_RB, MOTOR_STOP);
-  digitalWrite(MOTOR_LB, 1);
-  analogWrite(MOTOR_RF, MOTOR_L_FULL_SPEED);
-  analogWrite(MOTOR_LF, MOTOR_STOP); 
-  Serial.println("panicLeft");
+  LRRotations = 0;
+  RRRotations = 0;
+  if (LRRotations < 11)
+  {
+    digitalWrite(MOTOR_RB, MOTOR_STOP);
+    digitalWrite(MOTOR_LB, 1);
+    analogWrite(MOTOR_RF, MOTOR_L_FULL_SPEED);
+    analogWrite(MOTOR_LF, MOTOR_STOP); 
+    Serial.println("panicLeft");
+  }
 }
 
 // Function for making a left turn
@@ -545,7 +554,7 @@ void turnLeft()
 {
   LRRotations = 0;
   RRRotations = 0;
-  while (LRRotations < 60 && RRRotations < 50) 
+  if (LRRotations < 60 && RRRotations < 50) 
   {
     digitalWrite(MOTOR_RB, MOTOR_STOP);
     digitalWrite(MOTOR_LB, MOTOR_STOP);
@@ -562,7 +571,7 @@ void turnRight()
 {
   LRRotations = 0;
   RRRotations = 0;
-  while (LRRotations < 50 && RRRotations < 60) 
+  if (LRRotations < 50 && RRRotations < 60) 
   {
     digitalWrite(MOTOR_RB, MOTOR_STOP);
     digitalWrite(MOTOR_LB, MOTOR_STOP);
@@ -611,10 +620,10 @@ void followRightWall()
       {
         RRRotations = 0;
         LRRotations = 0;
-        goForwards();
+        goForwards(200);
         currentTask = FORWARD_BEFORE_RIGHT;
       }
-      else if (distanceForwards < 15)
+      else if (distanceForwards < 15 && distanceRight < 15)
       {
         RRRotations = 0;
         rotateLeft();
@@ -624,7 +633,7 @@ void followRightWall()
       {
         RRRotations = 0;
         LRRotations = 0;
-        goForwards();
+        goForwards(200);
         currentTask = FORWARD;
       }
       break;
