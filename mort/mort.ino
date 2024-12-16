@@ -24,6 +24,8 @@ const unsigned char LINE_SENSOR[] = {A2, A3, A4, A5, A6, A7}; // Line sensor pin
 unsigned int distanceForwards = 0;
 unsigned int distanceRight = 0;
 unsigned int distanceLeft = 0;
+unsigned int leftSpeed = 0;
+unsigned int rightSpeed = 0;
 
 unsigned int LRRotations = 0;       // Amount of rotation sensor changes on the left wheel
 unsigned int RRRotations = 0;       // Amount of rotation sensor changes on the left wheel
@@ -104,8 +106,6 @@ void loop()
   #endif
 }
 
-
-
 ///////////
 // DEBUG //
 ///////////
@@ -143,10 +143,12 @@ void loop()
       debugMessage += "\nSonar left (cm):       " + int2String4(distanceLeft)    +" (max " + String(maxDistanceLeft)    +")";
       debugMessage += "\nSonar forwards (cm):   " + int2String4(distanceForwards)+" (max " + String(maxDistanceForwards)+")";
       debugMessage += "\nSonar right (cm):      " + int2String4(distanceRight)   +" (max " + String(maxDistanceRight)   +")";
-      debugMessage += "\nWheel rotations left:  " + String(RRRotations);
-      debugMessage += "\nWheel rotations right: " + String(LRRotations);
+      debugMessage += "\nWheel rotations right: " + String(RRRotations);
+      debugMessage += "\nWheel rotations left:  " + String(LRRotations);
       debugMessage += "\nTask:                  " + translateCurrentTask(currentTask);
       debugMessage += "\nTask time left (us):   " + String(currentTaskStart + currentTaskDuration - currentTime);
+      debugMessage += "\nLeft motor speed:      " + int2String4(leftSpeed);
+      debugMessage += "\nRight motor speed:     " + int2String4(rightSpeed);
       
 
       Serial.println(debugMessage);
@@ -172,45 +174,6 @@ void loop()
 
     return String(number) + result;
   }
-
-  void printDebugMessage_old()
-  {
-    if (currentTime - lastDebug > 1000000) {
-      debugStart = millis();
-
-      Serial.println("");
-      Serial.println("---- ---- DIAGNOSTIC DEBUG DATA ---- ----\ntest");
-      Serial.print  ("Time (us):             ");
-      Serial.println(currentTime);
-      Serial.print  ("Sonar left (cm):       ");
-      Serial.println(distanceLeft);
-      Serial.print  ("Sonar forwards (cm):   ");
-      Serial.println(distanceForwards);
-      Serial.print  ("Sonar right (cm):      ");
-      Serial.println(distanceRight);
-      Serial.print  ("Sonar left max:        ");
-      Serial.println(maxDistanceLeft);
-      Serial.print  ("Sonar forwards max:    ");
-      Serial.println(maxDistanceForwards);
-      Serial.print  ("Sonar right max:       ");
-      Serial.println(maxDistanceRight);
-      Serial.print  ("Wheel rotations left:  ");
-      Serial.println(RRRotations);
-      Serial.print  ("Wheel rotations right: ");
-      Serial.println(LRRotations);
-      Serial.print  ("Task:                  ");
-      Serial.println(translateCurrentTask(currentTask));
-      Serial.print  ("Task time left:        ");
-      Serial.println(currentTaskStart + currentTaskDuration - currentTime);
-      Serial.print  ("Debug duration (ms):   ");
-      Serial.println(millis() - debugStart);
-
-      maxDistanceLeft = 0;
-      maxDistanceForwards = 0;
-      maxDistanceRight = 0;
-      lastDebug = currentTime;
-    }
-  }
 #endif
 
 
@@ -219,15 +182,24 @@ void loop()
 // LINE SENSOR //
 /////////////////
 
-int lineSensorValue[6] = {0, 0, 0, 0, 0, 0}; // Array for line sensor values
+int lineSensorValue[8] = {0, 0, 0, 0, 0, 0, 0, 0}; // Array for line sensor values
 
 // Read all the line sensor pins
 void readLineSensor() 
 {
-  for (unsigned char i = 0; i < 6; i++) 
+  for (unsigned char i = 0; i < 8; i++) 
   {
     lineSensorValue[i] = analogRead(LINE_SENSOR[i]);
   }
+
+  allBlack = (lineSensorValue[1] >= colorBlack) 
+           && (lineSensorValue[2] >= colorBlack) 
+           && (lineSensorValue[3] >= colorBlack) 
+           && (lineSensorValue[4] >= colorBlack) 
+           && (lineSensorValue[5] >= colorBlack) 
+           && (lineSensorValue[6] >= colorBlack) 
+           && (lineSensorValue[7] >= colorBlack) 
+           && (lineSensorValue[0] >= colorBlack); //true if all the line sensor bits are looking at black
 }
 
 
@@ -459,43 +431,17 @@ void countRotationsRight()
 #define MOTOR_L_HALF_SPEED 140  // Left motor half speed
 #define MOTOR_R_FULL_SPEED 255  // Right motor full speed
 #define MOTOR_R_HALF_SPEED 140  // Right motor half speed
+#define SPEED 200
 #define MOTOR_STOP         0    // Motor stopping speed
 
 // Makes the relaybot drive in a straight line forward
-// TODO: make the parameters int speed, pulses/cm. 
-void goForwards(int speed) 
+// TODO: Make the robot drive a certain speed, calibrated with rotation sensor
+void goForwards() 
 {
-  unsigned long timerz = millis();
-  LRRotations = 0;
-  RRRotations = 0;
-
-  if (LRRotations <= 60 && RRRotations <= 60)
-  {
-    unsigned long currentTime = millis();
-
-    if (currentTime - timerz >= 200)
-    {
-      timerz = currentTime;
-
-      int difference = RRRotations - LRRotations;
-    
-      int leftSpeed = speed - difference;
-      int rightSpeed = speed;
-
-      leftSpeed = constrain(leftSpeed, 150, 255);
-      rightSpeed = constrain(rightSpeed, 150, 255);
-
-      analogWrite(MOTOR_LF, speed - difference);
-      analogWrite(MOTOR_RF, speed);
-      digitalWrite(MOTOR_LB, MOTOR_STOP);
-      digitalWrite(MOTOR_RB, MOTOR_STOP);
-
-      Serial.print("Left: ");
-      Serial.print(LRRotations);
-      Serial.print("  Right: ");
-      Serial.println(RRRotations);
-    }
-  }
+  analogWrite(MOTOR_LF, SPEED);
+  analogWrite(MOTOR_RF, SPEED);
+  digitalWrite(MOTOR_LB, MOTOR_STOP);
+  digitalWrite(MOTOR_RB, MOTOR_STOP);
 }
 
 // Makes the relaybot drive in a straight line backwards
@@ -521,65 +467,51 @@ void stopDriving()
 // TODO: Make it turn correctly
 void rotateRight() 
 {
-  LRRotations = 0;
-  RRRotations = 0;
-  if (RRRotations < 11)
-  {
-    digitalWrite(MOTOR_LB, MOTOR_STOP);
-    digitalWrite(MOTOR_RB, 1);
-    analogWrite(MOTOR_LF, MOTOR_L_FULL_SPEED);
-    analogWrite(MOTOR_RF, MOTOR_STOP); 
-  }
+  digitalWrite(MOTOR_LB, MOTOR_STOP);
+  digitalWrite(MOTOR_RB, 1);
+  analogWrite(MOTOR_LF, MOTOR_L_FULL_SPEED);
+  analogWrite(MOTOR_RF, MOTOR_STOP); 
 }
 
 // Rotate the relaybot on its axis to the left
 // TODO: Make it turn correctly
 void rotateLeft()
 {
-  LRRotations = 0;
-  RRRotations = 0;
-  if (LRRotations < 11)
-  {
-    digitalWrite(MOTOR_RB, MOTOR_STOP);
-    digitalWrite(MOTOR_LB, 1);
-    analogWrite(MOTOR_RF, MOTOR_L_FULL_SPEED);
-    analogWrite(MOTOR_LF, MOTOR_STOP); 
-    Serial.println("panicLeft");
-  }
+  digitalWrite(MOTOR_RB, MOTOR_STOP);
+  digitalWrite(MOTOR_LB, 1);
+  analogWrite(MOTOR_RF, MOTOR_L_FULL_SPEED);
+  analogWrite(MOTOR_LF, MOTOR_STOP); 
+  Serial.println("panicLeft");
 }
 
-// Function for making a left turn
-// TODO: Make it turn smoothly using the rotation sensors
-void turnLeft() 
+void driveStraight()
 {
-  LRRotations = 0;
-  RRRotations = 0;
-  if (LRRotations < 60 && RRRotations < 50) 
+  static unsigned long timer = micros();
+  unsigned int difference = 0;
+  if (currentTime - timer >= 10000)
   {
-    digitalWrite(MOTOR_RB, MOTOR_STOP);
-    digitalWrite(MOTOR_LB, MOTOR_STOP);
-    analogWrite(MOTOR_RF, MOTOR_R_FULL_SPEED);
-    analogWrite(MOTOR_LF, MOTOR_L_HALF_SPEED);
-  }
-  stopDriving();
-}
+      timer = currentTime;
 
-// Function for making a right turn
-// TODO: Make it turn smoothly using the rotation sensors
-// TODO: Make it full throttle in the beginning so it starts properly
-void turnRight() 
-{
-  LRRotations = 0;
-  RRRotations = 0;
-  if (LRRotations < 50 && RRRotations < 60) 
-  {
-    digitalWrite(MOTOR_RB, MOTOR_STOP);
-    digitalWrite(MOTOR_LB, MOTOR_STOP);
-    analogWrite(MOTOR_RF, MOTOR_R_HALF_SPEED);
-    analogWrite(MOTOR_LF, MOTOR_L_FULL_SPEED);
-  }
+      if (RRRotations < LRRotations)
+      {
+        difference = LRRotations - RRRotations;
+        leftSpeed = SPEED - (difference);
+        leftSpeed = constrain(leftSpeed, 160, 255);
+        rightSpeed = SPEED;
+      }
+      else
+      {
+        difference = RRRotations - LRRotations;
+        rightSpeed = SPEED - (difference);
+        rightSpeed = constrain(rightSpeed, 160, 255);
+        leftSpeed = SPEED;
+      }
 
-  stopDriving();
+      analogWrite(MOTOR_LF, leftSpeed);
+      analogWrite(MOTOR_RF, rightSpeed);
+      digitalWrite(MOTOR_LB, MOTOR_STOP);
+      digitalWrite(MOTOR_RB, MOTOR_STOP);
+  }
 }
 
 
@@ -602,8 +534,6 @@ void setGripper(int pulse)
   }
 }
 
-
-
 ////////
 // AI //
 ////////
@@ -615,44 +545,45 @@ void followRightWall()
 {
   switch (currentTask) 
   {
+    static unsigned int oldRRR = RRRotations;
+    static unsigned int oldLRR = LRRotations;
     case NO_TASK:
-      if (distanceRight > 15)
+      oldRRR = RRRotations;
+      oldLRR = LRRotations;
+      if (distanceRight > 20)
       {
         RRRotations = 0;
         LRRotations = 0;
-        goForwards(200);
+        goForwards();
         currentTask = FORWARD_BEFORE_RIGHT;
       }
-      else if (distanceForwards < 15 && distanceRight < 15)
+      else if (distanceForwards < 20)
       {
         RRRotations = 0;
-        rotateLeft();
         currentTask = LEFT_90;
       }
-      else
+      else  
       {
-        RRRotations = 0;
-        LRRotations = 0;
-        goForwards(200);
         currentTask = FORWARD;
       }
       break;
     case FORWARD:
-      if (RRRotations > 10)
+      if ((RRRotations - oldRRR) > 10)
       {
         stopDriving();
         currentTask = NO_TASK;     
       }
+      driveStraight();
       break;
     case RIGHT_90:
-      if (LRRotations > 6)
+      if (LRRotations > 4)
       {
         stopDriving();
         currentTask = NO_TASK;
       }
       break;
     case LEFT_90:
-      if (RRRotations > 6)
+      if (RRRotations > 3)
       {
         stopDriving();
         currentTask = NO_TASK;
@@ -666,60 +597,5 @@ void followRightWall()
         currentTask = RIGHT_90;
       }
       break;
-
-
   }
-}
-
-unsigned long distanceRatio = 10;
-
-// turning ratio: 0.44865 * 250 = 112.1625
-// max speed: 13.77cm/s
-// outer wheel quarter circle: 32.53cm / 13.77cm/s = 2.3624s = 2362.4ms = 2362400us
-void turnRight_test() 
-{
-  analogWrite(MOTOR_RF, 112);
-  analogWrite(MOTOR_LF, MOTOR_L_FULL_SPEED);
-  digitalWrite(MOTOR_RB, MOTOR_STOP);
-  digitalWrite(MOTOR_LB, MOTOR_STOP);
-
-  currentTask = RIGHT_90;
-  currentTaskStart = currentTime;
-  currentTaskDuration = 23624*distanceRatio;
-}
-
-void turnLeft_test() 
-{
-  analogWrite(MOTOR_RF, MOTOR_R_FULL_SPEED);
-  analogWrite(MOTOR_LF, 110);
-  digitalWrite(MOTOR_RB, MOTOR_STOP);
-  digitalWrite(MOTOR_LB, MOTOR_STOP);
-
-  currentTask = LEFT_90;
-  currentTaskStart = currentTime;
-  currentTaskDuration = 23624*distanceRatio;
-}
-
-void forward_test()
-{
-  analogWrite(MOTOR_LF, MOTOR_L_FULL_SPEED);
-  analogWrite(MOTOR_RF, MOTOR_R_FULL_SPEED);
-  digitalWrite(MOTOR_LB, MOTOR_STOP);
-  digitalWrite(MOTOR_RB, MOTOR_STOP);
-
-  currentTask = FORWARD;
-  currentTaskStart = currentTime;
-  currentTaskDuration = 21786*distanceRatio; // 30cm / 13.77cm/s = 2.17865s = 2178650us
-}
-
-void turnAround_test() 
-{
-  analogWrite(MOTOR_LF, MOTOR_L_FULL_SPEED);
-  analogWrite(MOTOR_RF, MOTOR_STOP); 
-  digitalWrite(MOTOR_LB, MOTOR_STOP);
-  digitalWrite(MOTOR_RB, 1);
-
-  currentTask = ROTATE_180;
-  currentTaskStart = currentTime;
-  currentTaskDuration = 13000*distanceRatio; // 17.9353cm / 13.77cm/s = 1.3s = 1300000us
 }
