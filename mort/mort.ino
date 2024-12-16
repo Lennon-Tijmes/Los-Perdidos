@@ -442,7 +442,6 @@ void countRotationsRight()
 #define MOTOR_STOP         0    // Motor stopping speed
 
 // Makes the relaybot drive in a straight line forward
-// TODO: Make the robot drive a certain speed, calibrated with rotation sensor
 void goForwards() 
 {
   analogWrite(MOTOR_LF, SPEED - 5);
@@ -454,21 +453,20 @@ void goForwards()
 void adjustLeft()
 {
   analogWrite(MOTOR_LF, SPEED - 40);
-  analogWrite(MOTOR_RF, SPEED);
+  analogWrite(MOTOR_RF, SPEED + 40);
   digitalWrite(MOTOR_LB, MOTOR_STOP);
   digitalWrite(MOTOR_RB, MOTOR_STOP);  
 }
 
 void adjustRight()
 {
-  analogWrite(MOTOR_LF, SPEED);
+  analogWrite(MOTOR_LF, SPEED + 40);
   analogWrite(MOTOR_RF, SPEED - 35);
   digitalWrite(MOTOR_LB, MOTOR_STOP);
   digitalWrite(MOTOR_RB, MOTOR_STOP);  
 }
 
 // Makes the relaybot drive in a straight line backwards
-// TODO: Make the robot drive a certain speed, calibrated with rotation sensor
 void goBackwards(unsigned int speed) 
 {
   digitalWrite(MOTOR_LB, 1);
@@ -487,7 +485,6 @@ void stopDriving()
 }
 
 // Rotate the relaybot on its axis to the right
-// TODO: Make it turn correctly
 void rotateRight() 
 {
   digitalWrite(MOTOR_LB, MOTOR_STOP);
@@ -497,14 +494,12 @@ void rotateRight()
 }
 
 // Rotate the relaybot on its axis to the left
-// TODO: Make it turn correctly
 void rotateLeft()
 {
   digitalWrite(MOTOR_RB, MOTOR_STOP);
   digitalWrite(MOTOR_LB, 1);
   analogWrite(MOTOR_RF, 255);
   analogWrite(MOTOR_LF, MOTOR_STOP); 
-  Serial.println("panicLeft");
 }
 
 void driveStraight()
@@ -623,13 +618,13 @@ void followRightWall()
   }
 }
 
-void followLine()
+void followLineStart()
 {
   bool forwards = (lineSensorValue[3] >= colorBlack) && (lineSensorValue[4] >= colorBlack);
   bool turnRight = (lineSensorValue[1] >= colorBlack) || (lineSensorValue[2] >= colorBlack);
   bool turnLeft = (lineSensorValue[5] >= colorBlack) || (lineSensorValue[6] >= colorBlack);
 
-  if (!allBlack)
+  if (!allWhite)
   {
     if (forwards == true)
     {
@@ -646,8 +641,8 @@ void followLine()
   }
   else
   {
-    stopDriving();
-    setGripper(GRIPPER_CLOSED);
+    // TODO: make it swap to maze solving
+    return;
   }
 
 }
