@@ -95,7 +95,8 @@ void loop()
 {
   currentTime = micros();
 
-  updateSonar();
+  // updateSonar();
+  readLineSensor();
 
   if (waitForStart)
   {
@@ -107,7 +108,6 @@ void loop()
   }
 
   // followRightWall();
-  readLineSensor();
   followLineStart();
 
   #ifdef DEBUG
@@ -625,16 +625,16 @@ void followRightWall()
 
 void driveToSquare()
 {
-  // TODO: implement start signal
-  if (startSignalRecieved)
-  {
-    while (!allBlack)
-    {
-      goForwards();
-    }
-    rotateLeft();
-    squarePassed = true;
-  }
+  // // TODO: implement start signal
+  // if (startSignalRecieved)
+  // {
+  //   while (!allBlack)
+  //   {
+  //     goForwards();
+  //   }
+  //   rotateLeft();
+  //   squarePassed = true;
+  // }
 }
 
 void followLineStart()
@@ -645,46 +645,43 @@ void followLineStart()
   unsigned char lastValue = 0;
   static unsigned long timer = currentTime;
 
-  if ((currentTime - timer) > 10000)
+  if ((currentTime - timer) > 1000)
   {
-    if (squarePassed)
+    if (!squarePassed)
     {
-      if (distanceLeft > 15)
+      if (!allWhite)
       {
-        if (!allWhite)
+        if (forwards == true)
         {
-          if (forwards == true)
-          {
-            goForwards();
-          }
-          else if (turnRight == true)
-          {
-            adjustRight(); 
-            lastValue = r;
-          }
-          else if (turnLeft == true)
-          {
-            adjustLeft();
-            lastValue = l;
-          }
+          goForwards();
         }
-    -    else
+        else if (turnRight == true)
         {
-          if (lastValue == r)
-          {
-            adjustRight();
-          }
-          else
-          {
-            adjustLeft();
-          }
+          adjustRight(); 
+          lastValue = 1;
+        }
+        else if (turnLeft == true)
+        {
+          adjustLeft();
+          lastValue = 2;
         }
       }
       else
       {
-        mazeEntered = true;
+        if (lastValue == 1)
+        {
+          adjustRight();
+        }
+        else
+        {
+          adjustLeft();
+        }
       }
     }
+      else
+      {
+        mazeEntered = true;
+      }
     timer = currentTime;
   }
 }
