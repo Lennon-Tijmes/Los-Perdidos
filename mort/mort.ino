@@ -1,4 +1,4 @@
-#define DEBUG 1
+// #define DEBUG 1
 
 
 
@@ -41,8 +41,12 @@ unsigned int RRRotations = 0;       // Amount of rotation sensor changes on the 
 unsigned char currentTask = NO_TASK;
 unsigned long currentTaskStart = 0;
 unsigned long currentTaskDuration = 0;
-
 unsigned long currentTime = micros();
+
+bool allBlack = false;
+bool allWhite = false;
+unsigned int colorBlack = 850;
+unsigned int colorWhite = 700;
 
 void setup() 
 {
@@ -99,7 +103,9 @@ void loop()
     return;
   }
 
-  followRightWall();
+  // followRightWall();
+  readLineSensor();
+  followLine();
 
   #ifdef DEBUG
     printDebugMessage();
@@ -182,24 +188,29 @@ void loop()
 // LINE SENSOR //
 /////////////////
 
-int lineSensorValue[8] = {0, 0, 0, 0, 0, 0, 0, 0}; // Array for line sensor values
+int lineSensorValue[6] = {0, 0, 0, 0, 0, 0}; // Array for line sensor values
 
 // Read all the line sensor pins
 void readLineSensor() 
 {
-  for (unsigned char i = 0; i < 8; i++) 
+  for (unsigned char i = 0; i < 6; i++) 
   {
     lineSensorValue[i] = analogRead(LINE_SENSOR[i]);
   }
 
-  allBlack = (lineSensorValue[1] >= colorBlack) 
+  allBlack = (lineSensorValue[0] >= colorBlack) 
+           && (lineSensorValue[1] >= colorBlack) 
            && (lineSensorValue[2] >= colorBlack) 
            && (lineSensorValue[3] >= colorBlack) 
            && (lineSensorValue[4] >= colorBlack) 
-           && (lineSensorValue[5] >= colorBlack) 
-           && (lineSensorValue[6] >= colorBlack) 
-           && (lineSensorValue[7] >= colorBlack) 
-           && (lineSensorValue[0] >= colorBlack); //true if all the line sensor bits are looking at black
+           && (lineSensorValue[5] >= colorBlack);  //true if all the line sensor bits are looking at black
+
+  allWhite = (lineSensorValue[0] <= colorWhite) 
+           && (lineSensorValue[1] <= colorWhite) 
+           && (lineSensorValue[2] <= colorWhite) 
+           && (lineSensorValue[3] <= colorWhite) 
+           && (lineSensorValue[4] <= colorWhite) 
+           && (lineSensorValue[5] <= colorWhite);  //true if all the line sensor bits are looking at white
 }
 
 
@@ -427,10 +438,6 @@ void countRotationsRight()
 // MOTOR //
 ///////////
 
-#define MOTOR_L_FULL_SPEED 250  // Left motor full speed
-#define MOTOR_L_HALF_SPEED 140  // Left motor half speed
-#define MOTOR_R_FULL_SPEED 255  // Right motor full speed
-#define MOTOR_R_HALF_SPEED 140  // Right motor half speed
 #define SPEED 200
 #define MOTOR_STOP         0    // Motor stopping speed
 
@@ -438,20 +445,36 @@ void countRotationsRight()
 // TODO: Make the robot drive a certain speed, calibrated with rotation sensor
 void goForwards() 
 {
-  analogWrite(MOTOR_LF, SPEED);
+  analogWrite(MOTOR_LF, SPEED - 5);
   analogWrite(MOTOR_RF, SPEED);
   digitalWrite(MOTOR_LB, MOTOR_STOP);
   digitalWrite(MOTOR_RB, MOTOR_STOP);
 }
 
+void adjustLeft()
+{
+  analogWrite(MOTOR_LF, SPEED - 40);
+  analogWrite(MOTOR_RF, SPEED);
+  digitalWrite(MOTOR_LB, MOTOR_STOP);
+  digitalWrite(MOTOR_RB, MOTOR_STOP);  
+}
+
+void adjustRight()
+{
+  analogWrite(MOTOR_LF, SPEED);
+  analogWrite(MOTOR_RF, SPEED - 35);
+  digitalWrite(MOTOR_LB, MOTOR_STOP);
+  digitalWrite(MOTOR_RB, MOTOR_STOP);  
+}
+
 // Makes the relaybot drive in a straight line backwards
 // TODO: Make the robot drive a certain speed, calibrated with rotation sensor
-void goBackwards(unsigned char speed) 
+void goBackwards(unsigned int speed) 
 {
   digitalWrite(MOTOR_LB, 1);
   digitalWrite(MOTOR_RB, 1);
-  analogWrite(MOTOR_LF, (-MOTOR_L_FULL_SPEED - speed));
-  analogWrite(MOTOR_RF, (MOTOR_R_FULL_SPEED - speed));
+  analogWrite(MOTOR_LF, (255 - speed));
+  analogWrite(MOTOR_RF, (255 - speed));
 }
 
 // Stops all the motors
@@ -469,7 +492,7 @@ void rotateRight()
 {
   digitalWrite(MOTOR_LB, MOTOR_STOP);
   digitalWrite(MOTOR_RB, 1);
-  analogWrite(MOTOR_LF, MOTOR_L_FULL_SPEED);
+  analogWrite(MOTOR_LF, 255);
   analogWrite(MOTOR_RF, MOTOR_STOP); 
 }
 
@@ -479,7 +502,7 @@ void rotateLeft()
 {
   digitalWrite(MOTOR_RB, MOTOR_STOP);
   digitalWrite(MOTOR_LB, 1);
-  analogWrite(MOTOR_RF, MOTOR_L_FULL_SPEED);
+  analogWrite(MOTOR_RF, 255);
   analogWrite(MOTOR_LF, MOTOR_STOP); 
   Serial.println("panicLeft");
 }
@@ -598,4 +621,33 @@ void followRightWall()
       }
       break;
   }
+}
+
+void followLine()
+{
+  bool forwards = (lineSensorValue[3] >= colorBlack) && (lineSensorValue[4] >= colorBlack);
+  bool turnRight = (lineSensorValue[1] >= colorBlack) || (lineSensorValue[2] >= colorBlack);
+  bool turnLeft = (lineSensorValue[5] >= colorBlack) || (lineSensorValue[6] >= colorBlack);
+
+  if (!allBlack)
+  {
+    if (forwards == true)
+    {
+      goForwards();
+    }
+    else if (turnRight == true)
+    {
+      adjustRight(); 
+    }
+    else if (turnLeft == true)
+    {
+      adjustLeft();
+    }
+  }
+  else
+  {
+    stopDriving();
+    setGripper(GRIPPER_CLOSED);
+  }
+
 }
