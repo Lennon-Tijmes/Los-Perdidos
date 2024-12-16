@@ -48,6 +48,9 @@ bool allWhite = false;
 unsigned int colorBlack = 850;
 unsigned int colorWhite = 700;
 
+bool mazeEntered = false;
+bool squarePassed = false;
+
 void setup() 
 {
   Serial.begin(9600);                       // Begin the serial monitor
@@ -105,7 +108,7 @@ void loop()
 
   // followRightWall();
   readLineSensor();
-  followLine();
+  followLineStart();
 
   #ifdef DEBUG
     printDebugMessage();
@@ -211,6 +214,7 @@ void readLineSensor()
            && (lineSensorValue[3] <= colorWhite) 
            && (lineSensorValue[4] <= colorWhite) 
            && (lineSensorValue[5] <= colorWhite);  //true if all the line sensor bits are looking at white
+
 }
 
 
@@ -618,31 +622,69 @@ void followRightWall()
   }
 }
 
-void followLineStart()
-{
-  bool forwards = (lineSensorValue[3] >= colorBlack) && (lineSensorValue[4] >= colorBlack);
-  bool turnRight = (lineSensorValue[1] >= colorBlack) || (lineSensorValue[2] >= colorBlack);
-  bool turnLeft = (lineSensorValue[5] >= colorBlack) || (lineSensorValue[6] >= colorBlack);
 
-  if (!allWhite)
+void driveToSquare()
+{
+  // TODO: implement start signal
+  if (startSignalRecieved)
   {
-    if (forwards == true)
+    while (!allBlack)
     {
       goForwards();
     }
-    else if (turnRight == true)
-    {
-      adjustRight(); 
-    }
-    else if (turnLeft == true)
-    {
-      adjustLeft();
-    }
+    rotateLeft();
+    squarePassed = true;
   }
-  else
-  {
-    // TODO: make it swap to maze solving
-    return;
-  }
+}
 
+void followLineStart()
+{
+  bool forwards = (lineSensorValue[2] >= colorBlack) && (lineSensorValue[3] >= colorBlack);
+  bool turnLeft = (lineSensorValue[0] >= colorBlack) || (lineSensorValue[1] >= colorBlack);
+  bool turnRight = (lineSensorValue[4] >= colorBlack) || (lineSensorValue[5] >= colorBlack);
+  unsigned char lastValue = 0;
+  static unsigned long timer = currentTime;
+
+  if ((currentTime - timer) > 10000)
+  {
+    if (squarePassed)
+    {
+      if (distanceLeft > 15)
+      {
+        if (!allWhite)
+        {
+          if (forwards == true)
+          {
+            goForwards();
+          }
+          else if (turnRight == true)
+          {
+            adjustRight(); 
+            lastValue = r;
+          }
+          else if (turnLeft == true)
+          {
+            adjustLeft();
+            lastValue = l;
+          }
+        }
+    -    else
+        {
+          if (lastValue == r)
+          {
+            adjustRight();
+          }
+          else
+          {
+            adjustLeft();
+          }
+        }
+      }
+      else
+      {
+        mazeEntered = true;
+      }
+    }
+    timer = currentTime;
+  }
 }
