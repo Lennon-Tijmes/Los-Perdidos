@@ -1,183 +1,130 @@
 #include <Arduino.h>
 
+#define MOTOR_LF_PIN 9
+#define MOTOR_RF_PIN 6
+#define MOTOR_LB_PIN 5
+#define MOTOR_RB_PIN 10
 #define TRIG_PIN 12
 #define ECHO_PIN 11
+#define GRIPPER_PIN 8
+#define NEOPIXEL_PIN 13
 
-// Motor Pins
-#define LEFT_MOTOR_FORWARD 9
-#define LEFT_MOTOR_BACKWARD 5
-#define RIGHT_MOTOR_FORWARD 6
-#define RIGHT_MOTOR_BACKWARD 10
-
-// Distance Threshold for Obstacle (in cm)
-#define OBSTACLE_DISTANCE 20
-
-#define LMOTOR_HALF_SPEED 130
-#define RMOTOR_HALF_SPEED 130
-#define RMOTOR_FULL_SPEED 255
-#define LMOTOR_FULL_SPEED 255
+// Motor speed controls
+#define MOTOR_LF_SPEED 215
+#define MOTOR_RF_SPEED 220
+#define MOTOR_LB_SPEED 210
+#define MOTOR_RB_SPEED 220
 #define MOTOR_STOP 0
 
-const int sensorPins[] = {A0, A1, A2, A3, A4, A5, A6, A7};  // Line sensors
-const int sensorCount = sizeof(sensorPins) / sizeof(sensorPins[0]);
+#define GRIPPER_OPEN   1600  // Value for the gripper to be open
+#define GRIPPER_CLOSED 1010  // Value for the gripper to be closed
+
+// Line sensors
+const int LIGHT_SENSORS[] = {A0, A1, A2, A3, A4, A5, A6, A7};
+int LIGHT_THRESHOLD = 850;
+
+// Auxiliary variables
+float distance = 0;
+bool gripperClosed = false; // Current state of the gripper (open/closed)
 
 void setup() {
-  // Ultrasonic Sensor Pins
+  pinMode(MOTOR_LF_PIN, OUTPUT);
+  pinMode(MOTOR_RF_PIN, OUTPUT);
+  pinMode(MOTOR_LB_PIN, OUTPUT);
+  pinMode(MOTOR_RB_PIN, OUTPUT);
   pinMode(TRIG_PIN, OUTPUT);
   pinMode(ECHO_PIN, INPUT);
+  pinMode(GRIPPER_PIN, OUTPUT);
 
-  // Motor Control Pins
-  pinMode(LEFT_MOTOR_FORWARD, OUTPUT);
-  pinMode(LEFT_MOTOR_BACKWARD, OUTPUT);
-  pinMode(RIGHT_MOTOR_FORWARD, OUTPUT);
-  pinMode(RIGHT_MOTOR_BACKWARD, OUTPUT);
-
-  // Line sensor pins
-  for (int i = 0; i < sensorCount; i++) {
-    pinMode(sensorPins[i], INPUT);
+  for (int i = 0; i < 8; i++) {
+    pinMode(LIGHT_SENSORS[i], INPUT);
   }
-  Serial.begin(9600); // For debugging
+
+  Serial.begin(9600);
+  stopAllMotors();
+  setGripper(GRIPPER_OPEN); // Start with the gripper open
 }
 
 void loop() {
-  long distance = readDistance();
+  measureDistance();
 
-  Serial.print("Distance: ");
-  Serial.println(distance);
-
-  if (distance > 0 && distance < OBSTACLE_DISTANCE)
-  {
-    // Obstacle detected, avoid it
-    stopMotors();
-    delay(200); // Pause for clarity
-    passObject();
-  } 
-  else 
-  {
-    // No obstacle, keep moving forward
-    followLine();
+  // Close the gripper if the distance is less than or equal to 10 cm
+  if (distance <= 10 && !gripperClosed) {
+    setGripper(GRIPPER_CLOSED);
+    gripperClosed = true; // Update the state
   }
-
-  delay(100); // Short delay for stability
+  else if (distance > 10 && gripperClosed) {
+    setGripper(GRIPPER_OPEN);
+    gripperClosed = false; // Update the state
+  }
+  followLine();
 }
 
-// Function to read distance from HC-SR04
-long readDistance() {
+// Measure distance with the ultrasonic sensor
+void measureDistance() {
   digitalWrite(TRIG_PIN, LOW);
   delayMicroseconds(2);
   digitalWrite(TRIG_PIN, HIGH);
   delayMicroseconds(10);
   digitalWrite(TRIG_PIN, LOW);
 
-  long duration = pulseIn(ECHO_PIN, HIGH);
-  long distance = duration * 0.034 / 2; // Convert to cm
-  return distance;
+  float duration = pulseIn(ECHO_PIN, HIGH);
+  distance = duration * 0.034 / 2; // Convert to cm
 }
 
-// Function to read line sensor values and follow the line
+// Gripper functions
+void setGripper(int pulse) {
+  for (int i = 0; i < 8; i++) { // Maintain the pulse for 1 second
+    digitalWrite(GRIPPER_PIN, HIGH);
+    delayMicroseconds(pulse);
+    digitalWrite(GRIPPER_PIN, LOW);
+  }
+}
+
+// Motor control functions
 void followLine() {
-  int sensorValues[sensorCount];
-  int position = 0;
-  int totalValue = 0;
+  int left = analogRead(LIGHT_SENSORS[0]) > LIGHT_THRESHOLD || analogRead(LIGHT_SENSORS[1]) > LIGHT_THRESHOLD;
+  int right = analogRead(LIGHT_SENSORS[6]) > LIGHT_THRESHOLD || analogRead(LIGHT_SENSORS[7]) > LIGHT_THRESHOLD;
+  int center = analogRead(LIGHT_SENSORS[2]) > LIGHT_THRESHOLD || analogRead(LIGHT_SENSORS[3]) > LIGHT_THRESHOLD;
 
-  // Read sensor values
-  for (int i = 0; i < sensorCount; i++) {
-    sensorValues[i] = analogRead(sensorPins[i]);
-    position += sensorValues[i] * (i + 1); // Weighted sum
-    totalValue += sensorValues[i];
-  }
-
-  // Calculate the line position
-  if (totalValue > 0) {
-    position /= totalValue; // Normalize to get the line position
+  // Line detection and direction control
+  if (left && !right) {
+    goRight(); // If the left side is off the line, turn right
+  } else if (right && !left) {
+    goLeft(); // If the right side is off the line, turn left
+  } else if (center) {
+    driveForward(); // If the center detects the line, move forward
   } else {
-    position = -1; // No line detected
-  }
-
-  Serial.print("Line Position: ");
-  Serial.println(position);
-
-  // Control motors based on the line position
-  if (position == -1) {
-    // No line detected, stop
-    stopMotors();
-  } else if (position < sensorCount / 2) {
-    // Line is to the left
-    goLeft();
-  } else if (position > sensorCount / 2) {
-    // Line is to the right
-    goRight();
-  } else {
-    // Line is centered
-    moveForward();
+    stopAllMotors(); // If no sensor detects the line, stop the robot
   }
 }
 
-// Function to move forward
-void moveForward() 
-{
-  digitalWrite(LEFT_MOTOR_FORWARD, LMOTOR_FULL_SPEED);
-  digitalWrite(LEFT_MOTOR_BACKWARD, MOTOR_STOP);
-  digitalWrite(RIGHT_MOTOR_FORWARD, RMOTOR_FULL_SPEED);
-  digitalWrite(RIGHT_MOTOR_BACKWARD, MOTOR_STOP);
+// Motor movement functions
+void driveForward() {
+  analogWrite(MOTOR_LF_PIN, MOTOR_LF_SPEED);
+  analogWrite(MOTOR_RF_PIN, MOTOR_RF_SPEED);
+  analogWrite(MOTOR_LB_PIN, MOTOR_STOP);
+  analogWrite(MOTOR_RB_PIN, MOTOR_STOP);
 }
 
-// Function to stop motors
-void stopMotors() 
-{
-  digitalWrite(LEFT_MOTOR_FORWARD, MOTOR_STOP);
-  digitalWrite(LEFT_MOTOR_BACKWARD, MOTOR_STOP);
-  digitalWrite(RIGHT_MOTOR_FORWARD, MOTOR_STOP);
-  digitalWrite(RIGHT_MOTOR_BACKWARD, MOTOR_STOP);
+void goLeft() {
+  analogWrite(MOTOR_LB_PIN, MOTOR_STOP);
+  analogWrite(MOTOR_RF_PIN, MOTOR_RF_SPEED);
+  analogWrite(MOTOR_LF_PIN, 187); // Adjust left motor speed
+  analogWrite(MOTOR_RB_PIN, MOTOR_STOP);
 }
 
-// Function to move backward
-void moveBackward() 
-{
-  digitalWrite(LEFT_MOTOR_FORWARD, MOTOR_STOP);
-  digitalWrite(LEFT_MOTOR_BACKWARD, LMOTOR_FULL_SPEED);
-  digitalWrite(RIGHT_MOTOR_FORWARD, MOTOR_STOP);
-  digitalWrite(RIGHT_MOTOR_BACKWARD, RMOTOR_FULL_SPEED);
+void goRight() {
+  analogWrite(MOTOR_LB_PIN, MOTOR_STOP);
+  analogWrite(MOTOR_RF_PIN, 190); // Adjust right motor speed
+  analogWrite(MOTOR_LF_PIN, MOTOR_LF_SPEED);
+  analogWrite(MOTOR_RB_PIN, MOTOR_STOP);
 }
 
-// Function to avoid obstacle
-void passObject() 
-{
-  
-  stopMotors();
-  delay(500);
-  goRight();
-  delay(700);
-  moveForward();
-  delay(1000);
-  goLeft();
-  delay(700);
-  moveForward();
-  delay(1000);
-  goLeft();
-  delay(700);
-  moveForward();
-  delay(1000);
-  
+// Stop all motors function
+void stopAllMotors() {
+  analogWrite(MOTOR_LF_PIN, MOTOR_STOP);
+  analogWrite(MOTOR_RF_PIN, MOTOR_STOP);
+  analogWrite(MOTOR_LB_PIN, MOTOR_STOP);
+  analogWrite(MOTOR_RB_PIN, MOTOR_STOP);
 }
-  void goRight()
-  {
-  digitalWrite(LEFT_MOTOR_FORWARD, LMOTOR_HALF_SPEED);
-  digitalWrite(LEFT_MOTOR_BACKWARD, MOTOR_STOP);
-  digitalWrite(RIGHT_MOTOR_FORWARD, MOTOR_STOP);
-  digitalWrite(RIGHT_MOTOR_BACKWARD, RMOTOR_HALF_SPEED);
-  delay(500); // Adjust turning time based on your bot
-  stopMotors();
-  }
-  
-  void goLeft()
-  {
-    digitalWrite(RIGHT_MOTOR_FORWARD, RMOTOR_HALF_SPEED);
-    digitalWrite(RIGHT_MOTOR_BACKWARD, MOTOR_STOP);
-    digitalWrite(LEFT_MOTOR_FORWARD, MOTOR_STOP);
-    digitalWrite(LEFT_MOTOR_BACKWARD, LMOTOR_HALF_SPEED);
-    delay(500);
-    stopMotors();
-  }
-
-  //pass the object
