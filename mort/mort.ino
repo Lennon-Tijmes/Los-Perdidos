@@ -108,6 +108,7 @@ void loop()
   }
 
   // followRightWall();
+  driveToSquare();
   followLineStart();
 
   #ifdef DEBUG
@@ -626,15 +627,29 @@ void followRightWall()
 void driveToSquare()
 {
   // // TODO: implement start signal
-  // if (startSignalRecieved)
-  // {
-  //   while (!allBlack)
-  //   {
-  //     goForwards();
-  //   }
-  //   rotateLeft();
-  //   squarePassed = true;
-  // }
+  static bool startSignalRecieved = true;
+  if (startSignalRecieved)
+  {
+    while (!allBlack)
+    {
+      readLineSensor();
+      goForwards();
+      delay(100);
+    }
+    readLineSensor();
+    if (allBlack)
+    {
+      goForwards();
+      delay(500);
+      setGripper(GRIPPER_CLOSED);
+      rotateLeft();
+      delay(480);
+      goForwards();
+      delay(500);
+      squarePassed = true;
+      startSignalRecieved = false;
+    }
+  }
 }
 
 void followLineStart()
@@ -647,7 +662,7 @@ void followLineStart()
 
   if ((currentTime - timer) > 1000)
   {
-    if (!squarePassed)
+    if (squarePassed)
     {
       if (!allWhite)
       {
