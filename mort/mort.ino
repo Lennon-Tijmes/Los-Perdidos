@@ -95,8 +95,8 @@ void loop()
 {
   currentTime = micros();
 
-  // updateSonar();
-  readLineSensor();
+  // // updateSonar();
+  // readLineSensor();
 
   if (waitForStart)
   {
@@ -107,9 +107,11 @@ void loop()
     return;
   }
 
-  // followRightWall();
-  driveToSquare();
-  followLineStart();
+  // // followRightWall();
+  // driveToSquare();
+  // followLineStart();
+  turnAround();
+  delay(1000);
 
   #ifdef DEBUG
     printDebugMessage();
@@ -505,6 +507,17 @@ void rotateLeft()
   digitalWrite(MOTOR_LB, 1);
   analogWrite(MOTOR_RF, 255);
   analogWrite(MOTOR_LF, MOTOR_STOP); 
+}
+
+void turnAround()
+{
+  digitalWrite(MOTOR_LB, 1);
+  digitalWrite(MOTOR_RB, 1);
+  analogWrite(MOTOR_RF, 50);
+  analogWrite(MOTOR_LF, 150);
+  delay(2000);
+  stopDriving();
+
 }
 
 void driveStraight()
