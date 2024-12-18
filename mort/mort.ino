@@ -55,12 +55,13 @@ unsigned int colorWhite = 700;
 
 bool mazeEntered = false;
 bool squarePassed = false;
-bool needToFindFinish = true;
+bool needToFindFinish = false;
 bool finishFound = false;
 
 void setup() 
 {
   Serial.begin(9600);                       // Begin the serial monitor
+  pixels.begin();
   pinMode(MOTOR_LF, OUTPUT);                // Initialize the left motor forwards as output
   pinMode(MOTOR_RF, OUTPUT);                // Initialize the right motor forwards as output
   pinMode(MOTOR_LB, OUTPUT);                // Initialize the left motor backwards as output
@@ -104,7 +105,7 @@ void loop()
 
   // // updateSonar();
   readLineSensor();
-  neoPixelsForwards();
+  idleLights();
 
   if (waitForStart)
   {
@@ -115,11 +116,11 @@ void loop()
     return;
   }
 
-  // // followRightWall();
+  // followRightWall();
   // driveToSquare();
   // followLineStart();
-  findFinish();
-  followLineEnd();
+  // findFinish();
+  // followLineEnd();
 
   #ifdef DEBUG
     printDebugMessage();
@@ -524,7 +525,31 @@ void turnAround()
   analogWrite(MOTOR_LF, 150);
   delay(2000);
   stopDriving();
+}
 
+void setMotors(int leftSpeed, int rightSpeed) 
+{
+  if (leftSpeed >= 0) 
+  {
+    analogWrite (MOTOR_LF, leftSpeed);
+    digitalWrite(MOTOR_LB, 0);
+  }
+  else 
+  { // leftSpeed < 0
+    analogWrite (MOTOR_LF, 255+leftSpeed);
+    digitalWrite(MOTOR_LB, 1);
+  }
+
+  if (rightSpeed >= 0) 
+  {
+    analogWrite (MOTOR_RF, rightSpeed);
+    digitalWrite(MOTOR_RB, 0);
+  }
+  else
+  { // rightSpeed < 0
+    analogWrite (MOTOR_RF, 255+rightSpeed);
+    digitalWrite(MOTOR_RB, 1);
+  }
 }
 
 void driveStraight()
@@ -569,7 +594,7 @@ void driveStraight()
 // Sets the gripper position to the given pulse
 void setGripper(int pulse) 
 {
-  for (int i = 0; i < 8; i++)
+  for (unsigned char i = 0; i < 8; i++)
    {
     digitalWrite(GRIPPER_PIN, HIGH);
     delayMicroseconds(pulse);
@@ -610,7 +635,7 @@ void followRightWall()
         currentTask = FORWARD;
       }
       break;
-    case FORWARD:
+    case FORWARD: 
       if ((RRRotations - oldRRR) > 10)
       {
         stopDriving();
@@ -786,17 +811,20 @@ void findFinish()
 }
 
 
-//sets the neopixels
-void setAllPixels(uint8_t red, uint8_t green, uint8_t blue) 
-{
-  for (int i = 0; i < pixels.numPixels(); i++)  
-  {
-    pixels.setPixelColor(i, pixels.Color(red, green, blue));
-  }
-  pixels.show();
-}
+///////////////
+// NEOPIXELS //
+///////////////
 
-void neoPixelsForwards()
-{
-  setAllPixels(255, 0, 255);
+#define BACK_LEFT     0
+#define BACK_RIGHT    1
+#define FORWARD_RIGHT 2
+#define FORWARD_LEFT  3
+
+
+void idleLights() {
+  pixels.setPixelColor(BACK_LEFT, pixels.Color(255, 255, 255));
+  pixels.setPixelColor(BACK_RIGHT, pixels.Color(255, 255, 255));
+  pixels.setPixelColor(FORWARD_RIGHT, pixels.Color(255, 255, 255));
+  pixels.setPixelColor(FORWARD_LEFT, pixels.Color(255, 255, 255));
+  pixels.show();
 }
