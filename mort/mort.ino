@@ -105,7 +105,7 @@ void loop()
 
   // // updateSonar();
   readLineSensor();
-  turnLeftLights();
+  brakeLights();
 
   if (waitForStart)
   {
@@ -881,4 +881,13 @@ void turnLeftLights()
     lightOn = !lightOn;
     timer = currentTime;
   }
+}
+
+void brakeLights()
+{
+  pixels.setPixelColor(BACK_LEFT, pixels.Color(255, 0, 0));
+  pixels.setPixelColor(BACK_RIGHT, pixels.Color(255, 0, 0));
+  pixels.setPixelColor(FORWARD_RIGHT, pixels.Color(255, 255, 255));
+  pixels.setPixelColor(FORWARD_LEFT, pixels.Color(255, 255, 255));
+  pixels.show();
 }
