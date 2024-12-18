@@ -105,7 +105,7 @@ void loop()
 
   // // updateSonar();
   readLineSensor();
-  idleLights();
+  turnLeftLights();
 
   if (waitForStart)
   {
@@ -827,4 +827,58 @@ void idleLights() {
   pixels.setPixelColor(FORWARD_RIGHT, pixels.Color(255, 255, 255));
   pixels.setPixelColor(FORWARD_LEFT, pixels.Color(255, 255, 255));
   pixels.show();
+}
+
+void turnRightLights()
+{
+  static bool lightOn = false;
+  static unsigned long timer = micros();
+  if ((currentTime - timer) > 500000)
+  {
+    if (lightOn)
+    {
+        pixels.setPixelColor(BACK_LEFT, pixels.Color(255, 255, 255));
+        pixels.setPixelColor(BACK_RIGHT, pixels.Color(255, 255, 255));
+        pixels.setPixelColor(FORWARD_RIGHT, pixels.Color(255, 255, 255));
+        pixels.setPixelColor(FORWARD_LEFT, pixels.Color(255, 255, 255));
+        pixels.show();
+    }
+    else
+    {
+        pixels.setPixelColor(BACK_LEFT, pixels.Color(255, 255, 255));
+        pixels.setPixelColor(BACK_RIGHT, pixels.Color(135, 99, 24));
+        pixels.setPixelColor(FORWARD_RIGHT, pixels.Color(135, 99, 24));
+        pixels.setPixelColor(FORWARD_LEFT, pixels.Color(255, 255, 255));
+        pixels.show();
+    }
+    lightOn = !lightOn;
+    timer = currentTime;
+  }
+}
+
+void turnLeftLights()
+{
+  static bool lightOn = false;
+  static unsigned long timer = micros();
+  if ((currentTime - timer) > 500000)
+  {
+    if (lightOn)
+    {
+        pixels.setPixelColor(BACK_LEFT, pixels.Color(255, 255, 255));
+        pixels.setPixelColor(BACK_RIGHT, pixels.Color(255, 255, 255));
+        pixels.setPixelColor(FORWARD_RIGHT, pixels.Color(255, 255, 255));
+        pixels.setPixelColor(FORWARD_LEFT, pixels.Color(255, 255, 255));
+        pixels.show();
+    }
+    else
+    {
+        pixels.setPixelColor(BACK_RIGHT, pixels.Color(255, 255, 255));
+        pixels.setPixelColor(BACK_LEFT, pixels.Color(135, 99, 24));
+        pixels.setPixelColor(FORWARD_LEFT, pixels.Color(135, 99, 24));
+        pixels.setPixelColor(FORWARD_RIGHT, pixels.Color(255, 255, 255));
+        pixels.show();
+    }
+    lightOn = !lightOn;
+    timer = currentTime;
+  }
 }
