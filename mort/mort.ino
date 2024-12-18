@@ -6,6 +6,11 @@
 // SETUP //
 ///////////
 
+#include <Adafruit_NeoPixel.h> //neopixel library
+#define NUM_PIXELS 4 //number of neopixels
+#define PIXEL_PIN 11 //pin for the neopixels
+Adafruit_NeoPixel pixels(NUM_PIXELS, PIXEL_PIN, NEO_RGB + NEO_KHZ800);
+
 const unsigned char LINE_SENSOR[] = {A2, A3, A4, A5, A6, A7}; // Line sensor pins
 #define SONAR_TRIG_PIN_FORWARD 12  // Sonar forward trig pin
 #define SONAR_ECHO_PIN_FORWARD 13  // Sonar forward echo pin
@@ -50,6 +55,8 @@ unsigned int colorWhite = 700;
 
 bool mazeEntered = false;
 bool squarePassed = false;
+bool needToFindFinish = true;
+bool finishFound = false;
 
 void setup() 
 {
@@ -96,7 +103,8 @@ void loop()
   currentTime = micros();
 
   // // updateSonar();
-  // readLineSensor();
+  readLineSensor();
+  neoPixelsForwards();
 
   if (waitForStart)
   {
@@ -110,8 +118,8 @@ void loop()
   // // followRightWall();
   // driveToSquare();
   // followLineStart();
-  turnAround();
-  delay(1000);
+  findFinish();
+  followLineEnd();
 
   #ifdef DEBUG
     printDebugMessage();
@@ -121,7 +129,6 @@ void loop()
 ///////////
 // DEBUG //
 ///////////
-
 #ifdef DEBUG
   unsigned int maxDistanceLeft = 0;
   unsigned int maxDistanceForwards = 0;
@@ -321,7 +328,7 @@ void updateSonar()
       }
       break;
 
-    // Get HIGH state duration from ECHO pin, or move to next phase if no signal after SONAR_RECEIVER_TIMEOUT_US microseconds
+    // Get HIGH state duration from ECHO pin, or move to next phase if no signal after SONAR_RECEIVER_TIMEOUT_US microseconds 
     case SONAR_FORWARD_READ_SIGNAL:
       duration = pulseIn(SONAR_ECHO_PIN_FORWARD, HIGH);
       if (duration > 0)
@@ -712,4 +719,84 @@ void followLineStart()
       }
     timer = currentTime;
   }
+}
+
+void followLineEnd()
+{
+  bool forwards = (lineSensorValue[2] >= colorBlack) && (lineSensorValue[3] >= colorBlack);
+  bool turnLeft = (lineSensorValue[0] >= colorBlack) || (lineSensorValue[1] >= colorBlack);
+  bool turnRight = (lineSensorValue[4] >= colorBlack) || (lineSensorValue[5] >= colorBlack);
+  unsigned char lastValue = 0;
+  static unsigned long timer = currentTime;
+
+  if ((currentTime - timer) > 1000)
+  {
+    if (finishFound)
+    {
+      if (!allBlack)
+      {
+        if (!allWhite)
+        {
+          if (forwards == true)
+          {
+            goForwards();
+          }
+          else if (turnRight == true)
+          {
+            adjustRight(); 
+            lastValue = 1;
+          }
+          else if (turnLeft == true)
+          {
+            adjustLeft();
+            lastValue = 2;
+          }
+        }
+        else
+        {
+          if (lastValue == 1)
+          {
+            adjustRight();
+          }
+          else
+          {
+            adjustLeft();
+          }
+        }
+      }
+      else
+      {
+        goForwards();
+        delay(50);
+        setGripper(GRIPPER_OPEN);
+        stopDriving();
+        while (true){}
+      }
+    }
+    timer = currentTime;
+  }
+}
+
+void findFinish()
+{
+  if ((!allWhite) && (needToFindFinish))
+  {
+    finishFound = true;
+  }
+}
+
+
+//sets the neopixels
+void setAllPixels(uint8_t red, uint8_t green, uint8_t blue) 
+{
+  for (int i = 0; i < pixels.numPixels(); i++)  
+  {
+    pixels.setPixelColor(i, pixels.Color(red, green, blue));
+  }
+  pixels.show();
+}
+
+void neoPixelsForwards()
+{
+  setAllPixels(255, 0, 255);
 }
