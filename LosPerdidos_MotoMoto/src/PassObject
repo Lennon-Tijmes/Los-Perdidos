@@ -18,46 +18,141 @@
 #define LMOTOR_FULL_SPEED 255
 #define MOTOR_STOP 0
 
+unsigned long previousMillis = 0;
+const int TURN_DURATION = 700;
+const int FORWARD_DURATION = 1000;
+const int PAUSE_DURATION = 600;
+long distance = -1;
+unsigned int colorBlack = 500;
+unsigned int colorWhite = 900;
+bool allBlack = false;
+bool allWhite = false;
 
+const unsigned char LINE_SENSOR[] = {A7, A6, A5, A4, A3, A2, A1, A0};
+int lineSensorValue[8] = {0, 0, 0, 0, 0, 0, 0, 0};
+
+// State variable for obstacle passing
+enum State { STOP, TURN_RIGHT, MOVE_FORWARD, TURN_LEFT, RETURN_FORWARD, RETURN_LEFT, RETURN_FORWARD_A, RETURN_LEFT_A, DONE };
+State currentState = STOP;
 
 void setup() {
-  // Ultrasonic Sensor Pins
   pinMode(TRIG_PIN, OUTPUT);
   pinMode(ECHO_PIN, INPUT);
 
-  // Motor Control Pins
   pinMode(LEFT_MOTOR_FORWARD, OUTPUT);
   pinMode(LEFT_MOTOR_BACKWARD, OUTPUT);
   pinMode(RIGHT_MOTOR_FORWARD, OUTPUT);
   pinMode(RIGHT_MOTOR_BACKWARD, OUTPUT);
 
   Serial.begin(9600); // For debugging
+
+  for (char i=0; i < 8; ++i) 
+  {
+    pinMode(LINE_SENSOR[i], INPUT);
+  }
 }
 
 void loop() {
-  long distance = readDistance();
-
-  Serial.print("Distance: ");
-  Serial.println(distance);
-
-  if (distance > 0 && distance < OBSTACLE_DISTANCE)
-  {
-    // Obstacle detected, avoid it
-    stopMotors();
-    delay(200); // Pause for clarity
-    passObject();
-  } 
-  else 
-  {
-    // No obstacle, keep moving forward
-    moveForward();
-  }
-
-  delay(100); // Short delay for stability
+  readDistance();
+  readLineSensor();
+  avoidObject();
+  followLine();
+  delay(100);
 }
 
-// Function to read distance from HC-SR04
-long readDistance() {
+// Function to move forward
+void moveForward() {
+  analogWrite(LEFT_MOTOR_FORWARD, LMOTOR_FULL_SPEED);
+  analogWrite(LEFT_MOTOR_BACKWARD, MOTOR_STOP);
+  analogWrite(RIGHT_MOTOR_FORWARD, RMOTOR_FULL_SPEED);
+  analogWrite(RIGHT_MOTOR_BACKWARD, MOTOR_STOP);
+}
+
+// Function to stop motors
+void stopMotors() {
+  analogWrite(LEFT_MOTOR_FORWARD, MOTOR_STOP);
+  analogWrite(LEFT_MOTOR_BACKWARD, MOTOR_STOP);
+  analogWrite(RIGHT_MOTOR_FORWARD, MOTOR_STOP);
+  analogWrite(RIGHT_MOTOR_BACKWARD, MOTOR_STOP);
+}
+
+// Function to avoid obstacle
+void passObject() {
+  unsigned long currentMillis = millis();
+
+  switch (currentState) {
+    case STOP:
+      stopMotors();
+      if (currentMillis - previousMillis >= PAUSE_DURATION) {
+        previousMillis = currentMillis;
+        currentState = TURN_RIGHT; // Turn right to start avoiding obstacle
+      }
+      break;
+
+    case TURN_RIGHT:
+      goRight();
+      if (currentMillis - previousMillis >= TURN_DURATION) {
+        previousMillis = currentMillis;
+        currentState = MOVE_FORWARD; // Move forward past the obstacle
+      }
+      break;
+
+    case MOVE_FORWARD:
+      moveForward();
+      if (currentMillis - previousMillis >= FORWARD_DURATION) {
+        previousMillis = currentMillis;
+        currentState = TURN_LEFT; // Turn back to the original direction
+      }
+      break;
+
+    case TURN_LEFT:
+      goLeft();
+      if (currentMillis - previousMillis >= TURN_DURATION) {
+        previousMillis = currentMillis;
+        currentState = RETURN_FORWARD; // Move back to align with the original path
+      }
+      break;
+
+    case RETURN_FORWARD:
+      moveForward();
+      if (currentMillis - previousMillis >= FORWARD_DURATION) {
+        previousMillis = currentMillis;
+        currentState = RETURN_LEFT; // Complete return sequence
+      }
+      break;
+
+    case RETURN_LEFT:
+      goLeft(); // Turn opposite to the first turn
+      if (currentMillis - previousMillis >= TURN_DURATION) {
+        previousMillis = currentMillis;
+        currentState = DONE; // Finished obstacle avoidance
+      }
+      break;
+
+    case DONE:
+      moveForward(); // Optionally pause before resuming normal operation
+      break;
+  } 
+}
+
+// Function to go right
+void goRight() {
+  analogWrite(LEFT_MOTOR_FORWARD, LMOTOR_HALF_SPEED);
+  analogWrite(LEFT_MOTOR_BACKWARD, MOTOR_STOP);
+  analogWrite(RIGHT_MOTOR_FORWARD, MOTOR_STOP);
+  analogWrite(RIGHT_MOTOR_BACKWARD, RMOTOR_HALF_SPEED);
+}
+
+// Function to go left
+void goLeft() {
+  analogWrite(RIGHT_MOTOR_FORWARD, RMOTOR_HALF_SPEED);
+  analogWrite(RIGHT_MOTOR_BACKWARD, MOTOR_STOP);
+  analogWrite(LEFT_MOTOR_FORWARD, MOTOR_STOP);
+  analogWrite(LEFT_MOTOR_BACKWARD, LMOTOR_HALF_SPEED);
+}
+
+// Function to read distance
+void readDistance() {
   digitalWrite(TRIG_PIN, LOW);
   delayMicroseconds(2);
   digitalWrite(TRIG_PIN, HIGH);
@@ -65,76 +160,80 @@ long readDistance() {
   digitalWrite(TRIG_PIN, LOW);
 
   long duration = pulseIn(ECHO_PIN, HIGH);
-  long distance = duration * 0.034 / 2; // Convert to cm
-  return distance;
+  distance = duration * 0.034 / 2; // Convert to cm
 }
 
-// Function to move forward
-void moveForward() 
-{
-  digitalWrite(LEFT_MOTOR_FORWARD, LMOTOR_FULL_SPEED);
-  digitalWrite(LEFT_MOTOR_BACKWARD, MOTOR_STOP);
-  digitalWrite(RIGHT_MOTOR_FORWARD, RMOTOR_FULL_SPEED);
-  digitalWrite(RIGHT_MOTOR_BACKWARD, MOTOR_STOP);
-}
-
-// Function to stop motors
-void stopMotors() 
-{
-  digitalWrite(LEFT_MOTOR_FORWARD, MOTOR_STOP);
-  digitalWrite(LEFT_MOTOR_BACKWARD, MOTOR_STOP);
-  digitalWrite(RIGHT_MOTOR_FORWARD, MOTOR_STOP);
-  digitalWrite(RIGHT_MOTOR_BACKWARD, MOTOR_STOP);
-}
-
-// Function to move backward
-void moveBackward() 
-{
-  digitalWrite(LEFT_MOTOR_FORWARD, MOTOR_STOP);
-  digitalWrite(LEFT_MOTOR_BACKWARD, LMOTOR_FULL_SPEED);
-  digitalWrite(RIGHT_MOTOR_FORWARD, MOTOR_STOP);
-  digitalWrite(RIGHT_MOTOR_BACKWARD, RMOTOR_FULL_SPEED);
-}
-
-// Function to avoid obstacle
-void passObject() 
-{
-  
-  stopMotors();
-  delay(500);
-  goRight();
-  delay(700);
-  moveForward();
-  delay(1000);
-  goLeft();
-  delay(700);
-  moveForward();
-  delay(1000);
-  goLeft();
-  delay(700);
-  moveForward();
-  delay(1000);
-  
-}
-  void goRight()
-  {
-  digitalWrite(LEFT_MOTOR_FORWARD, LMOTOR_HALF_SPEED);
-  digitalWrite(LEFT_MOTOR_BACKWARD, MOTOR_STOP);
-  digitalWrite(RIGHT_MOTOR_FORWARD, MOTOR_STOP);
-  digitalWrite(RIGHT_MOTOR_BACKWARD, RMOTOR_HALF_SPEED);
-  delay(500); // Adjust turning time based on your bot
-  stopMotors();
+// Function to read line sensor values
+void readLineSensor() {
+  for (unsigned char i = 0; i < 8; i++) {
+    lineSensorValue[i] = analogRead(LINE_SENSOR[i]);
   }
-  
-  void goLeft()
-  {
-    digitalWrite(RIGHT_MOTOR_FORWARD, RMOTOR_HALF_SPEED);
-    digitalWrite(RIGHT_MOTOR_BACKWARD, MOTOR_STOP);
-    digitalWrite(LEFT_MOTOR_FORWARD, MOTOR_STOP);
-    digitalWrite(LEFT_MOTOR_BACKWARD, LMOTOR_HALF_SPEED);
-    delay(500);
+
+  allBlack = (lineSensorValue[0] >= colorBlack) && (lineSensorValue[1] >= colorBlack) && (lineSensorValue[2] >= colorBlack) && (lineSensorValue[3] >= colorBlack) && (lineSensorValue[4] >= colorBlack) && (lineSensorValue[5] >= colorBlack); // true if all sensors are on black
+
+  allWhite = (lineSensorValue[0] <= colorWhite) && (lineSensorValue[1] <= colorWhite) && (lineSensorValue[2] <= colorWhite) && (lineSensorValue[3] <= colorWhite) && (lineSensorValue[4] <= colorWhite) && (lineSensorValue[5] <= colorWhite); // true if all sensors are on white
+}
+
+// Function to avoid object
+void avoidObject() {
+  if (distance > 0 && distance < OBSTACLE_DISTANCE) {
     stopMotors();
+    analogWrite(LEFT_MOTOR_FORWARD, 200);
+    analogWrite(LEFT_MOTOR_BACKWARD, MOTOR_STOP);
+    analogWrite(RIGHT_MOTOR_FORWARD, 155);
+    analogWrite(RIGHT_MOTOR_BACKWARD, MOTOR_STOP);
+    delay(500);
+    moveForward();
+    delay(2000);
+    stopMotors();
+    while (allWhite) {
+      readLineSensor();
+      analogWrite(LEFT_MOTOR_FORWARD, 150);
+      analogWrite(LEFT_MOTOR_BACKWARD, MOTOR_STOP);
+      analogWrite(RIGHT_MOTOR_FORWARD, 255);
+      analogWrite(RIGHT_MOTOR_BACKWARD, MOTOR_STOP);
+    }
   }
+}
 
-  //pass the object
+// Function to follow line
+void followLine() {
+  bool forwards = (lineSensorValue[3] >= colorBlack) && (lineSensorValue[4] >= colorBlack);
+  bool turnLeft = (lineSensorValue[0] >= colorBlack) || (lineSensorValue[1] >= colorBlack) || (lineSensorValue[2] >= colorBlack);
+  bool turnRight = (lineSensorValue[5] >= colorBlack) || (lineSensorValue[6] >= colorBlack) || (lineSensorValue[7] >= colorBlack);
+  unsigned char lastValue = 0;
 
+  if (!allWhite) {
+    if (forwards == true) {
+      moveForward();
+    }
+    else if (turnRight == true) {
+      analogWrite(LEFT_MOTOR_FORWARD, 250);
+      analogWrite(LEFT_MOTOR_BACKWARD, MOTOR_STOP);
+      analogWrite(RIGHT_MOTOR_FORWARD, 180);
+      analogWrite(RIGHT_MOTOR_BACKWARD, MOTOR_STOP);
+      lastValue = 1;
+    }
+    else if (turnLeft == true) {
+      analogWrite(LEFT_MOTOR_FORWARD, 180);
+      analogWrite(LEFT_MOTOR_BACKWARD, MOTOR_STOP);
+      analogWrite(RIGHT_MOTOR_FORWARD, 250);
+      analogWrite(RIGHT_MOTOR_BACKWARD, MOTOR_STOP);
+      lastValue = 2;
+    }
+  }
+  else {
+    if (lastValue == 1) {
+      analogWrite(LEFT_MOTOR_FORWARD, 250);
+      analogWrite(LEFT_MOTOR_BACKWARD, MOTOR_STOP);
+      analogWrite(RIGHT_MOTOR_FORWARD, 180);
+      analogWrite(RIGHT_MOTOR_BACKWARD, MOTOR_STOP);
+    }
+    else {
+      analogWrite(LEFT_MOTOR_FORWARD, 180);
+      analogWrite(LEFT_MOTOR_BACKWARD, MOTOR_STOP);
+      analogWrite(RIGHT_MOTOR_FORWARD, 250);
+      analogWrite(RIGHT_MOTOR_BACKWARD, MOTOR_STOP);
+    }
+  }
+}
