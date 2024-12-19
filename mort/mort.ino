@@ -57,11 +57,13 @@ bool mazeEntered = false;
 bool squarePassed = false;
 bool needToFindFinish = true;
 bool finishFound = false;
+bool startSignalReceived = false;
 
 void setup() 
 {
   Serial.begin(9600);                       // Begin the serial monitor
   pixels.begin();
+  Serial.println("Slave started");
   pinMode(MOTOR_LF, OUTPUT);                // Initialize the left motor forwards as output
   pinMode(MOTOR_RF, OUTPUT);                // Initialize the right motor forwards as output
   pinMode(MOTOR_LB, OUTPUT);                // Initialize the left motor backwards as output
@@ -683,12 +685,42 @@ void followRightWall()
       break;
   }
 }
+ 
 
+////////////////
+// CONNECTION //
+////////////////
+
+#define SLAVE_ID 1
+
+void waitForStartSignal() 
+{
+  // This function will handle waiting for the start signal
+  if (!startSignalReceived) 
+  {
+    if (Serial.available()) 
+    {
+      String message = Serial.readStringUntil('\n');
+      Serial.print("Received: ");
+      Serial.println(message);
+
+      if (message.length() >= 2 && message[0] == SLAVE_ID + '0' && message[1] == '?') 
+      {
+        Serial.print("Responding to Master: Slave ");
+        Serial.print(SLAVE_ID);
+        Serial.println(" Response");
+
+        // Start signal received, now begin the process
+        startSignalReceived = true;
+      }
+    }
+  }
+}
 
 void driveToSquare()
 {
   // // TODO: implement start signal
-  static bool startSignalRecieved = true;
+  static bool startSignalRecieved = false;
   if (startSignalRecieved)
   {
     while (!allBlack)
