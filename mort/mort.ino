@@ -55,7 +55,7 @@ unsigned int colorWhite = 700;
 
 bool mazeEntered = false;
 bool squarePassed = false;
-bool needToFindFinish = false;
+bool needToFindFinish = true;
 bool finishFound = false;
 
 void setup() 
@@ -119,8 +119,8 @@ void loop()
   // followRightWall();
   // driveToSquare();
   // followLineStart();
-  // findFinish();
-  // followLineEnd();
+  findFinish();
+  followLineEnd();
 
   #ifdef DEBUG
     printDebugMessage();
@@ -473,12 +473,28 @@ void adjustLeft()
   digitalWrite(MOTOR_RB, MOTOR_STOP);  
 }
 
+void adjustLeftHard()
+{
+  analogWrite(MOTOR_LF, 255 - 190);
+  analogWrite(MOTOR_RF, SPEED + 40);
+  digitalWrite(MOTOR_LB, 1);
+  digitalWrite(MOTOR_RB, MOTOR_STOP);  
+}
+
 void adjustRight()
 {
   analogWrite(MOTOR_LF, SPEED + 40);
   analogWrite(MOTOR_RF, SPEED - 35);
   digitalWrite(MOTOR_LB, MOTOR_STOP);
   digitalWrite(MOTOR_RB, MOTOR_STOP);  
+}
+
+void adjustRightHard()
+{
+  analogWrite(MOTOR_LF, SPEED + 40);
+  analogWrite(MOTOR_RF, 255 - 190);
+  digitalWrite(MOTOR_LB, MOTOR_STOP);
+  digitalWrite(MOTOR_RB, 1);  
 }
 
 // Makes the relaybot drive in a straight line backwards
@@ -781,18 +797,16 @@ void followLineEnd()
         {
           if (lastValue == 1)
           {
-            adjustRight();
+            adjustRightHard();
           }
           else
           {
-            adjustLeft();
+            adjustLeftHard();
           }
         }
       }
       else
       {
-        goForwards();
-        delay(50);
         setGripper(GRIPPER_OPEN);
         stopDriving();
         while (true){}
@@ -950,13 +964,13 @@ void hazardLights()
 void discoLights()
 {
   static unsigned long timer = micros();
-  if ((currentTime - timer) > 50000)
+  if ((currentTime - timer) > 100000)
   {
     for (int i = 0; i < 4; i++)
     {
-      int randomRed = random(0, 256);
-      int randomGreen = random(0, 256);
-      int randomBlue = random(0, 256);
+      int randomRed = random(0, 200);
+      int randomGreen = random(0, 200);
+      int randomBlue = random(0, 200);
       
       switch (i) 
       {
