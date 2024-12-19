@@ -687,37 +687,6 @@ void followRightWall()
   }
 }
  
-
-////////////////
-// CONNECTION //
-////////////////
-
-#define SLAVE_ID 1
-
-void waitForStartSignal() 
-{
-  // This function will handle waiting for the start signal
-  if (!startSignalRecieved) 
-  {
-    if (Serial.available()) 
-    {
-      String message = Serial.readStringUntil('\n');
-      Serial.print("Received: ");
-      Serial.println(message);
-
-      if (message.length() >= 2 && message[0] == SLAVE_ID + '0' && message[1] == '?') 
-      {
-        Serial.print("Responding to Master: Slave ");
-        Serial.print(SLAVE_ID);
-        Serial.println(" Response");
-
-        // Start signal received, now begin the process
-        startSignalRecieved = true;
-      }
-    }
-  }
-}
-
 void driveToSquare()
 {
   // // TODO: implement start signal
@@ -1023,5 +992,35 @@ void discoLights()
     
     pixels.show();
     timer = currentTime;
+  }
+}
+
+////////////////
+// CONNECTION //
+////////////////
+
+#define SLAVE_ID 1
+
+void waitForStartSignal() 
+{
+  // This function will handle waiting for the start signal
+  if (!startSignalRecieved) 
+  {
+    if (Serial.available()) 
+    {
+      String message = Serial.readStringUntil('\n');
+      Serial.print("Received: ");
+      Serial.println(message);
+
+      if (message.length() >= 2 && message[0] == SLAVE_ID + '0' && message[1] == '?') 
+      {
+        Serial.print("Responding to Master: Slave ");
+        Serial.print(SLAVE_ID);
+        Serial.println(" Response");
+
+        // Start signal received, now begin the process
+        startSignalRecieved = true;
+      }
+    }
   }
 }
