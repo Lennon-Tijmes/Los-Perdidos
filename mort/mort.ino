@@ -105,7 +105,7 @@ void loop()
 
   // // updateSonar();
   readLineSensor();
-  hazardLights();
+  discoLights();
 
   if (waitForStart)
   {
@@ -691,7 +691,7 @@ void driveToSquare()
       delay(480);
       goForwards();
       delay(500);
-      squarePassed = true;
+      squarePassed = true;  
       startSignalRecieved = false;
     }
   }
@@ -922,7 +922,7 @@ void backwardsLights()
 
 void hazardLights()
 {
-  static bool lightOn = false;
+  static bool lightOn = false;  
   static unsigned long timer = micros();
   if ((currentTime - timer) > 500000)
   {
@@ -943,6 +943,39 @@ void hazardLights()
         pixels.show();
     }
     lightOn = !lightOn;
+    timer = currentTime;
+  }
+}
+
+void discoLights()
+{
+  static unsigned long timer = micros();
+  if ((currentTime - timer) > 50000)
+  {
+    for (int i = 0; i < 4; i++)
+    {
+      int randomRed = random(0, 256);
+      int randomGreen = random(0, 256);
+      int randomBlue = random(0, 256);
+      
+      switch (i) 
+      {
+        case 0: 
+          pixels.setPixelColor(BACK_LEFT, pixels.Color(randomRed, randomGreen, randomBlue)); 
+          break;
+        case 1: 
+          pixels.setPixelColor(BACK_RIGHT, pixels.Color(randomRed, randomGreen, randomBlue)); 
+          break;
+        case 2: 
+          pixels.setPixelColor(FORWARD_LEFT, pixels.Color(randomRed, randomGreen, randomBlue)); 
+          break;
+        case 3: 
+          pixels.setPixelColor(FORWARD_RIGHT, pixels.Color(randomRed, randomGreen, randomBlue)); 
+          break;
+      }
+    }
+    
+    pixels.show();
     timer = currentTime;
   }
 }
