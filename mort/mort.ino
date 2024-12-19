@@ -57,7 +57,7 @@ bool mazeEntered = false;
 bool squarePassed = false;
 bool needToFindFinish = true;
 bool finishFound = false;
-bool startSignalReceived = false;
+bool startSignalRecieved = false;
 
 void setup() 
 {
@@ -119,10 +119,11 @@ void loop()
   }
 
   // followRightWall();
-  // driveToSquare();
-  // followLineStart();
-  findFinish();
-  followLineEnd();
+  waitForStartSignal();
+  driveToSquare();
+  followLineStart();
+  // findFinish();
+  // followLineEnd();
 
   #ifdef DEBUG
     printDebugMessage();
@@ -696,7 +697,7 @@ void followRightWall()
 void waitForStartSignal() 
 {
   // This function will handle waiting for the start signal
-  if (!startSignalReceived) 
+  if (!startSignalRecieved) 
   {
     if (Serial.available()) 
     {
@@ -711,7 +712,7 @@ void waitForStartSignal()
         Serial.println(" Response");
 
         // Start signal received, now begin the process
-        startSignalReceived = true;
+        startSignalRecieved = true;
       }
     }
   }
@@ -720,7 +721,6 @@ void waitForStartSignal()
 void driveToSquare()
 {
   // // TODO: implement start signal
-  static bool startSignalRecieved = false;
   if (startSignalRecieved)
   {
     while (!allBlack)
