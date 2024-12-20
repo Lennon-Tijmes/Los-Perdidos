@@ -1,0 +1,61 @@
+.footer
+{
+    position: fixed;
+    bottom: 0;
+    width: 100%;
+}
+
+body
+{
+    background-color: #fffbf9;
+}
+
+
+/*edit stars*/
+.star-container .fa
+{
+    font-size: 70px;
+    border: 3px black;
+    margin: 7px;
+}
+
+/*position of the stars in the page*/
+.star-container
+{
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    height: 50vh; /* Make the container take a certain height of the viewport */
+}
+
+/*make the rating for the stars*/
+.checked
+{
+    color: orange;
+}
+
+
+/*style button*/
+body button
+{
+    background-color: #ee3b47;
+    border: none;
+    border-radius: 20px;
+    height: 60px;
+    width: 89px;
+    /*displaying the button in the middle of the page*/
+    text-align: center;
+    color: white;
+    font-size: 15px;
+    margin-bottom: 60px;
+}
+
+/*place button*/
+.container1
+{
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+}

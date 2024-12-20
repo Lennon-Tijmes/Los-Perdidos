@@ -1,0 +1,79 @@
+/*makes the menu bar and footer be full from left to right*/
+body
+{
+    margin:0;
+    padding:0;
+    background-color: #f7fffe;
+}
+
+
+
+/*create menu bar background*/
+nav ul
+{
+    display:flex;
+    /* Disperse items */
+    justify-content: space-between;
+    list-style-type: none;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+    background-color: #0f0005;
+}
+
+/*align links to left and horizontally*/
+nav ul li
+{
+    float: left;
+}
+
+/*made them look like buttons*/
+nav ul li a
+{
+    display: block;
+    background-color: #0f0005;
+    color: white;
+    text-align: center;
+    margin: 0;
+
+    padding: 16px;
+    text-decoration: none;
+}
+
+nav ul li a:hover
+{
+    background-color: #343434;
+}
+
+footer
+{
+    background-color: #0f0005;
+    color: #28FFBF;
+    text-align: center;
+    padding: 20px;
+    position: static;
+    bottom: 0;
+    width: 100%;
+    margin: 0 auto;
+}
+
+/*used for styling the links*/
+a
+{
+    /*force the color change*/
+    color: #28FFBF !important;
+    font-size: 16px;
+    /*inline-block used to fit every type of text width for bgcolor*/
+    display: inline-block;
+    margin: 0;
+    font-family: Arial;
+    white-space: nowrap;
+    text-decoration: underline;
+}
+
+a:hover
+{
+    color: #fce5e5;
+    background-color: #C41A0B;
+    transition: transform 0.1s;
+}

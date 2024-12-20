@@ -1,0 +1,14 @@
+.footer
+{
+    position: fixed;
+    bottom: 0;
+    width: 100%;
+}
+
+h1, h2, h3
+{
+    margin-left:10px;
+    margin-bottom:20px;
+    margin-top:10px;
+    text-align: left;
+}

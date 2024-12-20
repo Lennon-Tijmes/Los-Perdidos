@@ -1,0 +1,74 @@
+/*underline*/
+u
+{
+    color: black;
+}
+
+input
+{
+    width: 90%;
+    height: 60px; /* Use pixels for height */
+    /*padding used to generate space around an element's content*/
+    padding: 2px;
+    border: 1,2px solid;
+    /* rounds the corners of an element*/
+    border-radius: 2px;
+    color: #2d2d2d;
+    background-color: #ebeaea;
+    font-size: 17px;
+    margin-left: 40px;
+}
+
+h1
+{
+    font-family: Arial;
+    font-size: 26px;
+    color: black;
+    margin-bottom: -39px;
+    margin-top: 23px;
+    width: 100%;
+    text-align: center;
+}
+
+h2, h3, h4
+{
+    font-size: 20px;
+    color: black;
+    margin-top: 48px;
+    margin-bottom: 22px;
+    margin-left: 10px;
+}
+
+h5
+{
+    font-size: 22px;
+    margin-top: 100px;
+    margin-bottom: 25px;
+}
+
+button
+{
+    background-color: #ee3b47;
+    border: none;
+    border-radius: 20px;
+    height: 60px;
+    width: 89px;
+    /*displaying the button in the middle of the page*/
+    display: block;
+    margin: 0 auto;
+    text-align: center;
+    color: white;
+    font-size: 15px;
+    margin-bottom: 60px;
+}
+
+footer
+{
+    width:95.2%;
+}
+
+
+
+
+
+
