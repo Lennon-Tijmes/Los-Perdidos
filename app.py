@@ -8,6 +8,22 @@ app = Flask(__name__)
 def home():
     return render_template('home-page.html')
 
+@app.route('/specification')
+def specification():
+    return render_template('specification.html')
+
+@app.route('/contact')
+def contact():
+    return render_template('contact.html')
+
+@app.route('/reviews')
+def reviews():
+    return render_template('reviews.html')
+
+@app.route('/ourteam')
+def ourteam():
+    return render_template('ourteam.html')
+
 # Route for the dashboard
 @app.route('/dashboard')
 def dashboard():

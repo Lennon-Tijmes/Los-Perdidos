@@ -1,71 +1,71 @@
 <!DOCTYPE html>
 <html lang="en">
     <head>
-        <link href="menuandfooter.css" rel="stylesheet">
-        <link href="contact.css" rel="stylesheet">
+        <link href="/static/menuandfooter.css" rel="stylesheet">
+        <link href="/static/contact.css" rel="stylesheet">
         <title>My Webpage</title>
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-        <!--create menu bar-->
-        <nav>
-          <ul>
-            <li><a href="home-page.html">Home</a></li>
-            <li><a href="specification.html">Specification</a></li>
-            <li><a href="contact.html">Contact</a></li>
-            <li><a href="reviews.html">Reviews</a></li>
-            <li><a href="ourteam.html">Our team</a></li>
-          </ul>
-        </nav>
-      </head>
+      <!--create menu bar-->
+      <nav>
+        <ul>
+          <li><a href="/home-page">Home</a></li>
+          <li><a href="/specification">Specification</a></li>
+          <li><a href="/contact">Contact</a></li>
+          <li><a href="/reviews">Reviews</a></li>
+          <li><a href="/ourteam">Our team</a></li>
+          <li><a href="/dashboard">Dashboard</a></li>
+        </ul>
+      </nav>
+    </head>
 
-        <body style="background-color: #fdffff">
-          <b>
-              <h1>This is a contact form that you can complete!</h1>
-          </b>
-          <br>
+      <body style="background-color: #fdffff">
+        <b>
+          <h1>This is a contact form that you can complete!</h1>
+        </b>
+        <br>
 
-          <h2>∙ Input your name:</h2>
-          <!--make the field for user to input the information-->
-          <input type="text" id="name" name="name">
-          <br>
+        <h2>∙ Input your name:</h2>
+        <!--make the field for user to input the information-->
+        <input type="text" id="name" name="name">
+        <br>
 
-          <h3>∙ Input your email address ✉:</h3>
-          <input type="text" id="email" name="email">
-          <br>
+        <h3>∙ Input your email address ✉:</h3>
+        <input type="text" id="email" name="email">
+        <br>
 
-          <h4>∙ Ask me a question or send a message here:</h4>
-          <input type="text" id="message" name="message">
-          <br>
+        <h4>∙ Ask me a question or send a message here:</h4>
+        <input type="text" id="message" name="message">
+        <br>
 
-          <u>
-          <h5 style="text-align: center;">Submit your answer by clicking the following button!</h5>
-          </u>
+        <u>
+        <h5 style="text-align: center;">Submit your answer by clicking the following button!</h5>
+        </u>
 
-          <!--make an interactive button-->
-          <!--it alerts if the form is correct and submitted or not-->
-          <form id="contactForm">
-              <button type="button" onclick="validateForm()">Click here!</button>
-          </form>
-          <script>
-              function validateForm()
-              {
-                  const name = document.getElementById('name').value;
-                  const email = document.getElementById('email').value;
-                  const message = document.getElementById('message').value;
+        <!--make an interactive button-->
+        <!--it alerts if the form is correct and submitted or not-->
+        <form id="contactForm">
+          <button type="button" onclick="validateForm()">Click here!</button>
+        </form>
+        <script>
+          function validateForm()
+          {
+            const name = document.getElementById('name').value;
+            const email = document.getElementById('email').value;
+            const message = document.getElementById('message').value;
 
-                  if (name && email && message)
-                  {
-                      alert("Form submitted successfully!");
-                  } else {
-                      alert("Please fill out all fields.");
-                  }
+            if (name && email && message)
+            {
+              alert("Form submitted successfully!");
+              } else {
+                alert("Please fill out all fields.");
               }
+          }
 
-          </script>
+        </script>
 
 
    <footer>© December 2024</footer>
 
-
-        </body>
-        </html>
+  </body>
+</html>
