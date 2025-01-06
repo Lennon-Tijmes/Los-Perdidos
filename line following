@@ -18,6 +18,25 @@
 #define TRIG_PIN 12   
 #define ECHO_PIN 13
 
+//Gripper movement
+#define GRIPPER_OPEN   1600  
+#define GRIPPER_CLOSED 1010
+#define GRIPPER_PIN 8
+
+*/
+unsigned long previousMillis = 0;
+const int TURN_DURATION = 700;
+const int FORWARD_DURATION = 1000;
+const int PAUSE_DURATION = 600;
+long distance = -1;
+unsigned int colorBlack = 500;
+unsigned int colorWhite = 900;
+bool allBlack = false;
+bool allWhite = false;
+
+const unsigned char LINE_SENSOR[] = {A7, A6, A5, A4, A3, A2, A1, A0};
+int lineSensorValue[8] = {0, 0, 0, 0, 0, 0, 0, 0};
+/*
 
 void setup() 
 {
