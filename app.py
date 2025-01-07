@@ -28,17 +28,28 @@ def ourteam():
 @app.route('/dashboard')
 def dashboard():
     # Connect to the database
-    conn = sqlite3.connect('data.db')
+    conn = sqlite3.connect('robots.db')
     cursor = conn.cursor()
 
-    # Query for robot specifications
-    cursor.execute("SELECT * FROM robot_specifications")
-    specifications = cursor.fetchall()
+    # Query for data from each robot
+    cursor.execute("SELECT * FROM mort")
+    mort_data = cursor.fetchall()
+
+    cursor.execute("SELECT * FROM king_julien")
+    king_julien_data = cursor.fetchall()
+
+    cursor.execute("SELECT * FROM moto_moto")
+    moto_moto_data = cursor.fetchall()
 
     conn.close()
 
     # Pass data to the dashboard template
-    return render_template('dashboard.html', specifications=specifications)
+    return render_template(
+        'dashboard.html', 
+        mort_data=mort_data,
+        king_julien_data=king_julien_data,
+        moto_moto_data=moto_moto_data
+    )
 
 if __name__ == '__main__':
     app.run(debug=True)
