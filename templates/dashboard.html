@@ -34,8 +34,7 @@
                 <th>Object Middle</th>
                 <th>Line</th>
             </tr>
-            {% for row in specifications %}
-            {% if row[0] == 3 %}
+            {% for row in mort_data %}
             <tr>
                 <td>{{ row[1] }}</td>
                 <td>{{ row[2] }}</td>
@@ -43,7 +42,6 @@
                 <td>{{ row[4] }}</td>
                 <td>{{ row[5] }}</td>
             </tr>
-            {% endif %}
             {% endfor %}
         </table>
 
@@ -54,14 +52,12 @@
                 <th>Object Distance</th>
                 <th>Line</th>
             </tr>
-            {% for row in specifications %}
-            {% if row[0] == 2 %}
+            {% for row in moto_moto_data %}
             <tr>
                 <td>{{ row[1] }}</td>
                 <td>{{ row[2] }}</td>
                 <td>{{ row[3] }}</td>
             </tr>
-            {% endif %}
             {% endfor %}
         </table>
 
@@ -72,18 +68,16 @@
                 <th>Object Distance</th>
                 <th>Line</th>
             </tr>
-            {% for row in specifications %}
-            {% if row[0] == 1 %}
+            {% for row in king_julien_data %}
             <tr>
                 <td>{{ row[1] }}</td>
                 <td>{{ row[2] }}</td>
                 <td>{{ row[3] }}</td>
             </tr>
-            {% endif %}
             {% endfor %}
         </table>
     </div>
-
+    
     <!-- Footer -->
     <footer>
         <p>© <span id="current-year"></span></p>
