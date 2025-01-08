@@ -4,15 +4,17 @@
 // ██╔══██╗██╔══╝  ██║     ██╔══██║  ╚██╔╝  ██╔══██╗██║   ██║   ██║   
 // ██║  ██║███████╗███████╗██║  ██║   ██║   ██████╔╝╚██████╔╝   ██║   
 // ╚═╝  ╚═╝╚══════╝╚══════╝╚═╝  ╚═╝   ╚═╝   ╚═════╝  ╚═════╝    ╚═╝   
-                                                                   
-// ███╗   ███╗ ██████╗ ██████╗ ████████╗                              
-// ████╗ ████║██╔═══██╗██╔══██╗╚══██╔══╝                              
-// ██╔████╔██║██║   ██║██████╔╝   ██║                                 
-// ██║╚██╔╝██║██║   ██║██╔══██╗   ██║                                 
-// ██║ ╚═╝ ██║╚██████╔╝██║  ██║   ██║                                 
-// ╚═╝     ╚═╝ ╚═════╝ ╚═╝  ╚═╝   ╚═╝             
+//                ███╗   ███╗ ██████╗ ██████╗ ████████╗               
+//                ████╗ ████║██╔═══██╗██╔══██╗╚══██╔══╝               
+//                ██╔████╔██║██║   ██║██████╔╝   ██║                  
+//                ██║╚██╔╝██║██║   ██║██╔══██╗   ██║                  
+//                ██║ ╚═╝ ██║╚██████╔╝██║  ██║   ██║                  
+//                ╚═╝     ╚═╝ ╚═════╝ ╚═╝  ╚═╝   ╚═╝                  
 
-// #define DEBUG 1
+
+
+//#define DEBUG 1
+#define STARTUP_DELAY 2000
 
 
 
@@ -25,193 +27,225 @@
 #define PIXEL_PIN 11 //pin for the neopixels
 Adafruit_NeoPixel pixels(NUM_PIXELS, PIXEL_PIN, NEO_RGB + NEO_KHZ800);
 
-const unsigned char LINE_SENSOR[] = {A2, A3, A4, A5, A6, A7}; // Line sensor pins
-#define SONAR_TRIG_PIN_FORWARD 12  // Sonar forward trig pin
-#define SONAR_ECHO_PIN_FORWARD 13  // Sonar forward echo pin
-#define SONAR_TRIG_PIN_LEFT   5   // Sonar right trig pin
-#define SONAR_ECHO_PIN_LEFT   6   // Sonar right echo pin
-#define SONAR_TRIG_PIN_RIGHT   A1  // Sonar left trig pin
-#define SONAR_ECHO_PIN_RIGHT   A0  // Sonar left echo pin
-#define MOTOR_LF               9   // Forwards left motor pin
-#define MOTOR_RF               10  // Forwards right motor pin
-#define MOTOR_LB               7   // Backwards left motor pin
-#define MOTOR_RB               8   // Backwards right motor pin
-#define MOTOR_LR               2   // Left rotation sensor pin
-#define MOTOR_RR               3   // Right rotation sensor pin
-#define GRIPPER_PIN            4   // Servo gripper pin
+// Pins
+const unsigned char LINE_SENSOR_PINS[] = {A2, A3, A4, A5, A6, A7};
+#define SONAR_LEFT_TRIG_PIN       5
+#define SONAR_LEFT_ECHO_PIN       6
+#define SONAR_FRONT_TRIG_PIN      12
+#define SONAR_FRONT_ECHO_PIN      13
+#define SONAR_RIGHT_TRIG_PIN      A1 // 15
+#define SONAR_RIGHT_ECHO_PIN      A0 // 14
+#define ROTATION_SENSOR_LEFT_PIN  2
+#define ROTATION_SENSOR_RIGHT_PIN 3
+#define MOTOR_LEFT_POWER_PIN      9
+#define MOTOR_RIGHT_POWER_PIN     10
+#define MOTOR_LEFT_MODE_PIN       7
+#define MOTOR_RIGHT_MODE_PIN      8
+#define GRIPPER_PIN               4
 
-unsigned int distanceForwards = 0;
-unsigned int distanceRight = 0;
-unsigned int distanceLeft = 0;
-unsigned int leftSpeed = 0;
-unsigned int rightSpeed = 0;
+// Phase
+#define STARTUP_WAIT      0
+#define WAIT_FOR_START    1 // Wait for start signal
+#define CALIBRATE         2 // Drive a bit and calculate motor strength and timings
+#define MAP_MAZE          3 // Go look for maze solution
+#define RETURN_TO_START   4 // Stop looking and drive back to maze start
+#define WAIT_FOR_SIGNAL   5 // Wait for signal from master
+#define DRIVE_TO_SQUARE   6 // drive forward till black square, grab the pin and turn left
+#define FOLLOW_LINE_START 7 // follow the line untill inside of the maze
+#define DRIVE_PATH        8 // Drive the mapped path through the maze
+#define CONTINUE_MAZE     9 // If maze isn't solved yet, solve the rest of the maze
+#define FOLLOW_LINE_END   10 // Follow the finishing line and put pin inside black square
+#define FINISH            11
+unsigned char programPhase;
+unsigned long programStartTime;
 
-unsigned int LRRotations = 0;       // Amount of rotation sensor changes on the left wheel
-unsigned int RRRotations = 0;       // Amount of rotation sensor changes on the left wheel
-
-#define NO_TASK    0
-#define FORWARD    1
-#define RIGHT_90   2
-#define LEFT_90    3
-#define RIGHT_180  4
-#define LEFT_180   5
-#define ROTATE_180 6
-#define FORWARD_BEFORE_RIGHT 7
-unsigned char currentTask = NO_TASK;
+// Task
+#define CHOOSE_TASK        0
+#define DRIVE_FORWARDS_30  1
+#define DRIVE_BACKWARDS_30 2
+#define TURN_LEFT_90       3
+#define TURN_RIGHT_90      4
+#define SHORT_LEFT_90      5
+#define SHORT_RIGHT_90     6
+#define ROTATE_LEFT_180    7  // anti-clockwise
+#define ROTATE_RIGHT_180   8  // clockwise
+#define TURN_AROUND_LEFT   9  // anti-clockwise
+#define TURN_AROUND_RIGHT  10 // clockwise
+#define ADJUST_ROTATION    11
+#define ADJUST_POSITION    12
+#define PAUSE              13
+#define UPDATE_SONAR       14
+#define DRIVE_FORWARDS_2   15
+#define UPDATE_SONAR_2     16
+#define PATH_FINISHED      99
+#define GIVE_UP            100
+unsigned char currentTask = 0;
 unsigned long currentTaskStart = 0;
 unsigned long currentTaskDuration = 0;
-unsigned long currentTime = micros();
+unsigned char nextTask = 0;
 
+// Movement
+#define STOP              0
+#define FORWARDS          1
+#define BACKWARDS         2
+#define TURN_LEFT         3
+#define TURN_RIGHT        4
+#define TURN_LEFT_BACK    5
+#define TURN_RIGHT_BACK   6
+#define SHORT_LEFT        7
+#define SHORT_RIGHT       8
+#define SHORT_LEFT_BACK   9
+#define SHORT_RIGHT_BACK  10
+#define ROTATE_LEFT       11
+#define ROTATE_RIGHT      12
+#define ADJUST_LEFT       13
+#define ADJUST_RIGHT      14
+#define ADJUST_LEFT_HARD  15
+#define ADJUST_RIGHT_HARD 16
+int leftSpeed = 0;
+int rightSpeed = 0;
+
+int   forwardsLeftMotorSpeed = 250;
+int  forwardsRightMotorSpeed = 255;
+int  backwardsLeftMotorSpeed = -250;
+int backwardsRightMotorSpeed = -255;
+int   leftTurnLeftMotorSpeed = 98;
+int  leftTurnRightMotorSpeed = 255;
+int  rightTurnLeftMotorSpeed = 255;
+int rightTurnRightMotorSpeed = 105;
+
+// Sensors
+unsigned char sonarPhase = 0;
+unsigned long sonarLastActionTime = 0;
+unsigned long sonarSignalDuration = 0;
+
+#define SONAR_TOO_FAR 1023
+#define SONAR_NO_READING 1024
+double distanceLeft = SONAR_NO_READING;
+double distanceFront = SONAR_NO_READING;
+double distanceRight = SONAR_NO_READING;
+double minDistanceLeft = SONAR_NO_READING;
+double minDistanceFront = SONAR_NO_READING;
+double minDistanceRight = SONAR_NO_READING;
+double maxDistanceLeft = 0;
+double maxDistanceFront = 0;
+double maxDistanceRight = 0;
+
+#define MAX_SONAR_UPDATES 3
+unsigned int sonarUpdates = 0;
+double distancesLeft[MAX_SONAR_UPDATES];
+double distancesFront[MAX_SONAR_UPDATES];
+double distancesRight[MAX_SONAR_UPDATES];
+
+#define MAX_INT 2147483647
+unsigned int leftRotationTicks = 0;
+unsigned int rightRotationTicks = 0;
+unsigned int prevLeftRotationTicks = 0;
+unsigned int prevRightRotationTicks = 0;
+unsigned int targetLeftRotationTicks = MAX_INT;
+unsigned int targetRightRotationTicks = MAX_INT;
+
+// Lights
 bool allBlack = false;
 bool allWhite = false;
 unsigned int colorBlack = 850;
-unsigned int colorWhite = 700;
+unsigned int colorWhite = 600;
+
+// Other
+#define SLAVE_ID 1
+unsigned long currentTime;
 
 bool mazeEntered = false;
 bool squarePassed = false;
-bool needToFindFinish = true;
 bool finishFound = false;
 bool startSignalRecieved = false;
 
-void setup() 
+void setup()
 {
-  Serial.begin(9600);                       // Begin the serial monitor
+  Serial.begin(9600);                                           // Begin the serial monitor
   pixels.begin();
   Serial.println("Slave started");
-  pinMode(MOTOR_LF, OUTPUT);                // Initialize the left motor forwards as output
-  pinMode(MOTOR_RF, OUTPUT);                // Initialize the right motor forwards as output
-  pinMode(MOTOR_LB, OUTPUT);                // Initialize the left motor backwards as output
-  pinMode(MOTOR_RB, OUTPUT);                // Initialize the right motor backwards as output
-  pinMode(MOTOR_LR, INPUT_PULLUP);          // Initialize the rotation sensor of the left wheel as a pullup input
-  pinMode(MOTOR_RR, INPUT_PULLUP);          // Initialize the rotation sensor of the right wheel as a pullup input
-  pinMode(GRIPPER_PIN, OUTPUT);             // Initialize the gripper pin as output
-  pinMode(SONAR_TRIG_PIN_LEFT, OUTPUT);     // Initialize the sonar trig pin as output
-  pinMode(SONAR_ECHO_PIN_LEFT, INPUT);      // Initialize the sonar echo pin as input
-  pinMode(SONAR_TRIG_PIN_FORWARD, OUTPUT);  // Initialize the sonar trig pin as output
-  pinMode(SONAR_ECHO_PIN_FORWARD, INPUT);   // Initialize the sonar echo pin as input
-  pinMode(SONAR_TRIG_PIN_RIGHT, OUTPUT);    // Initialize the sonar trig pin as output
-  pinMode(SONAR_ECHO_PIN_RIGHT, INPUT);     // Initialize the sonar echo pin as input
+  pinMode(SONAR_LEFT_TRIG_PIN, OUTPUT);                         // Initialize the left  sonar trig pin as output
+  pinMode(SONAR_LEFT_ECHO_PIN, INPUT);                          // Initialize the left  sonar echo pin as input
+  pinMode(SONAR_FRONT_TRIG_PIN, OUTPUT);                        // Initialize the front sonar trig pin as output
+  pinMode(SONAR_FRONT_ECHO_PIN, INPUT);                         // Initialize the front sonar echo pin as input
+  pinMode(SONAR_RIGHT_TRIG_PIN, OUTPUT);                        // Initialize the right sonar trig pin as output
+  pinMode(SONAR_RIGHT_ECHO_PIN, INPUT);                         // Initialize the right sonar echo pin as input
+  pinMode(ROTATION_SENSOR_LEFT_PIN, INPUT_PULLUP);              // Initialize the left  rotation sensor as pullup input
+  pinMode(ROTATION_SENSOR_RIGHT_PIN, INPUT_PULLUP);             // Initialize the right rotation sensor as pullup input
+  pinMode(MOTOR_LEFT_POWER_PIN, OUTPUT);                        // Initialize the left  motor power pin as output
+  pinMode(MOTOR_RIGHT_POWER_PIN, OUTPUT);                       // Initialize the right motor power pin as output
+  pinMode(MOTOR_LEFT_MODE_PIN, OUTPUT);                         // Initialize the left  motor mode  pin  as output
+  pinMode(MOTOR_RIGHT_MODE_PIN, OUTPUT);                        // Initialize the right motor mode  pin  as output
+  pinMode(GRIPPER_PIN, OUTPUT);                                 // Initialize the gripper pin as output
+  for (char i = 0; i < 6; i++) pinMode(LINE_SENSOR_PINS[i], INPUT); // Initialize the line sensor pins as input
 
-  for (char i=0; i < 6; ++i) 
-  {
-    pinMode(LINE_SENSOR[i], INPUT);         // Initialize the line sensor pins as input
-  }
+  attachInterrupt(digitalPinToInterrupt(ROTATION_SENSOR_LEFT_PIN),  countRotationsLeft,  RISING);
+  attachInterrupt(digitalPinToInterrupt(ROTATION_SENSOR_RIGHT_PIN), countRotationsRight, RISING);
 
-  attachInterrupt(digitalPinToInterrupt(MOTOR_LR), countRotationsLeft, CHANGE);  // Interrupt activates when left wheel rotation sensor changes
-  attachInterrupt(digitalPinToInterrupt(MOTOR_RR), countRotationsRight, CHANGE); // Interrupt activates when right wheel rotation sensor changes
+  currentTime = millis();
+  programStartTime = currentTime;
+
+  programPhase = STARTUP_WAIT;
+  currentTask = UPDATE_SONAR;
+  currentTaskDuration = 2000;
+  nextTask = CHOOSE_TASK;
 }
 
-
-
-#define WAIT_FOR_START       0
-#define EXPLORE_AND_MAP_MAZE 1
-#define RETURN_TO_START      2
-#define WAIT_FOR_CARGO       3
-#define DRIVE_MAZE           4
-#define PARK_CARGO           5
-#define FINISH               6
-
-unsigned char programPhase = WAIT_FOR_START;
-unsigned long startTime = currentTime;
-bool waitForStart = true;
-
-void loop() 
+void loop()
 {
-  currentTime = micros();
+  currentTime = millis();
+  updateSonar();
+  updateLineSensor();
 
-  // // updateSonar();
-  readLineSensor();
-  discoLights();
-
-  if (waitForStart)
+  switch(programPhase)
   {
-    if (currentTime - startTime > 2000000)
+    case STARTUP_WAIT:
     {
-      waitForStart = false;
-    }
-    return;
+      phase_startupWait();
+    } break;
+    case WAIT_FOR_START:
+    {
+      phase_waitForStart();
+    } break;
+    case CALIBRATE:
+    {
+      phase_calibrate();
+    } break;
+    case MAP_MAZE:
+    {
+      phase_mapMaze();
+    } break;
+    case RETURN_TO_START:
+    {
+      phase_returnToStart();
+    } break;
+    case WAIT_FOR_SIGNAL:
+    {
+      phase_waitForSignal();
+    } break;
+    case DRIVE_TO_SQUARE:
+    {
+      phase_driveToSquare();
+    } break;
+    case FOLLOW_LINE_START:
+    {
+      phase_followLineStart();
+    } break;
+    case CONTINUE_MAZE:
+    {
+      phase_continueMaze();
+    } break;
+    case FOLLOW_LINE_END:
+    {
+      phase_followLineEnd();
+    } break;
+    case FINISH:
+    {
+      phase_finish();
+    } break;
   }
-
-  // followRightWall();
-  waitForStartSignal();
-  driveToSquare();
-  followLineStart();
-  // findFinish();
-  // followLineEnd();
-
-  #ifdef DEBUG
-    printDebugMessage();
-  #endif
 }
-
-///////////
-// DEBUG //
-///////////
-#ifdef DEBUG
-  unsigned int maxDistanceLeft = 0;
-  unsigned int maxDistanceForwards = 0;
-  unsigned int maxDistanceRight = 0;
-  unsigned long lastDebug = currentTime;
-  unsigned long debugStart = currentTime;
-
-  String translateCurrentTask(unsigned char taskId) 
-  {
-    switch (taskId) 
-    {
-      case 0: return "NO_TASK   ";
-      case 1: return "FORWARD   ";
-      case 2: return "RIGHT_90  ";
-      case 3: return "LEFT_90   ";
-      case 4: return "RIGHT_180 ";
-      case 5: return "LEFT_180  ";
-      case 6: return "ROTATE_180";
-    }
-    return "INVALID";
-  }
-
-  void printDebugMessage()
-  {
-    if (currentTime - lastDebug > 1000613)
-    {
-      debugStart = millis();
-
-      String debugMessage = "\n---- ---- DIAGNOSTIC DEBUG DATA ---- ----";
-      debugMessage += "\nTime (us):             " + String(currentTime);
-      debugMessage += "\nSonar left (cm):       " + int2String4(distanceLeft)    +" (max " + String(maxDistanceLeft)    +")";
-      debugMessage += "\nSonar forwards (cm):   " + int2String4(distanceForwards)+" (max " + String(maxDistanceForwards)+")";
-      debugMessage += "\nSonar right (cm):      " + int2String4(distanceRight)   +" (max " + String(maxDistanceRight)   +")";
-      debugMessage += "\nWheel rotations right: " + String(RRRotations);
-      debugMessage += "\nWheel rotations left:  " + String(LRRotations);
-      debugMessage += "\nTask:                  " + translateCurrentTask(currentTask);
-      debugMessage += "\nTask time left (us):   " + String(currentTaskStart + currentTaskDuration - currentTime);
-      debugMessage += "\nLeft motor speed:      " + int2String4(leftSpeed);
-      debugMessage += "\nRight motor speed:     " + int2String4(rightSpeed);
-      
-
-      Serial.println(debugMessage);
-      Serial.println("Debug duration (ms):   " + String(millis() - debugStart));
-
-      maxDistanceLeft = 0;
-      maxDistanceForwards = 0;
-      maxDistanceRight = 0;
-      lastDebug = currentTime;
-    }
-  }
-
-  String int2String4(unsigned int number)
-  {
-    String result = "";
-
-    if (number < 10)
-      result = "   ";
-    else if (number < 100)
-      result = "  ";
-    else if (number < 1000)
-      result = " ";
-
-    return String(number) + result;
-  }
-#endif
 
 
 
@@ -219,30 +253,29 @@ void loop()
 // LINE SENSOR //
 /////////////////
 
-int lineSensorValue[6] = {0, 0, 0, 0, 0, 0}; // Array for line sensor values
+int lineSensorValue[6] = {0, 0, 0, 0, 0, 0};
 
 // Read all the line sensor pins
-void readLineSensor() 
+void updateLineSensor()
 {
-  for (unsigned char i = 0; i < 6; i++) 
+  for (unsigned char i = 0; i < 6; i++)
   {
-    lineSensorValue[i] = analogRead(LINE_SENSOR[i]);
+    lineSensorValue[i] = analogRead(LINE_SENSOR_PINS[i]);
   }
 
-  allBlack = (lineSensorValue[0] >= colorBlack) 
-           && (lineSensorValue[1] >= colorBlack) 
-           && (lineSensorValue[2] >= colorBlack) 
-           && (lineSensorValue[3] >= colorBlack) 
-           && (lineSensorValue[4] >= colorBlack) 
-           && (lineSensorValue[5] >= colorBlack);  //true if all the line sensor bits are looking at black
+  allBlack =  (lineSensorValue[0] >= colorBlack)
+           && (lineSensorValue[1] >= colorBlack)
+           && (lineSensorValue[2] >= colorBlack)
+           && (lineSensorValue[3] >= colorBlack)
+           && (lineSensorValue[4] >= colorBlack)
+           && (lineSensorValue[5] >= colorBlack); // true if all the line sensor bits are looking at black
 
-  allWhite = (lineSensorValue[0] <= colorWhite) 
-           && (lineSensorValue[1] <= colorWhite) 
-           && (lineSensorValue[2] <= colorWhite) 
-           && (lineSensorValue[3] <= colorWhite) 
-           && (lineSensorValue[4] <= colorWhite) 
-           && (lineSensorValue[5] <= colorWhite);  //true if all the line sensor bits are looking at white
-
+  allWhite =  (lineSensorValue[0] <= colorWhite)
+           && (lineSensorValue[1] <= colorWhite)
+           && (lineSensorValue[2] <= colorWhite)
+           && (lineSensorValue[3] <= colorWhite)
+           && (lineSensorValue[4] <= colorWhite)
+           && (lineSensorValue[5] <= colorWhite); // true if all the line sensor bits are looking at white
 }
 
 
@@ -251,214 +284,190 @@ void readLineSensor()
 // SONAR //
 ///////////
 
-// Sonar phases
-#define SONAR_LEFT_START_SIGNAL    1
-#define SONAR_LEFT_STOP_SIGNAL     2
-#define SONAR_LEFT_READ_SIGNAL     3
-#define SONAR_FORWARD_START_SIGNAL 4
-#define SONAR_FORWARD_STOP_SIGNAL  5
-#define SONAR_FORWARD_READ_SIGNAL  6
-#define SONAR_RIGHT_START_SIGNAL   7
-#define SONAR_RIGHT_STOP_SIGNAL    8
-#define SONAR_RIGHT_READ_SIGNAL    9
-
 // The HC-SR04 manual recommends sending a 10 microsecond pulse to TRIG pin
-#define SONAR_SIGNAL_DURATION_US   10
+#define SONAR_SIGNAL_DURATION_US  10
 
-// Delay before switching to next sonar
-#define SONAR_DELAY_US             10000
+// Minimum delay before switching to next sonar
+#define SONAR_DELAY_MS            10
 
 // We assume the maze is 7x7, which means the longest distance to measure should be 7*30cm = 210cm
 // Speed of sound is around 35cm/ms=210cm/6ms, so the sound signal should take at most 12ms to come back to the robot
 // Accounting for some inaccuracies it's safe to set the timeout to 15ms
-#define SONAR_RECEIVER_TIMEOUT_US  15000
+#define SONAR_RECEIVER_TIMEOUT_MS 15
 
-void updateSonar() 
+// Sonar phases
+#define SONAR_LEFT_SEND_SIGNAL  0
+#define SONAR_LEFT_READ_SIGNAL  1
+#define SONAR_FRONT_SEND_SIGNAL 2
+#define SONAR_FRONT_READ_SIGNAL 3
+#define SONAR_RIGHT_SEND_SIGNAL 4
+#define SONAR_RIGHT_READ_SIGNAL 5
+
+const double microsecondsToCentimeters = 0.017; // 340m/s = 34000cm/s = 34cm/ms = 0.034cm/us, sound travels to object and back so divide by 2 for distance to object
+
+void updateSonar()
 {
-  static unsigned char sonarPhase = SONAR_LEFT_START_SIGNAL;
-  static unsigned long lastActionTime = micros();
-  static unsigned long duration = 0;
+  if (sonarUpdates >= MAX_SONAR_UPDATES)
+  {
+    return;
+  }
 
   switch (sonarPhase)
-   {
-
+  {
     // Left sonar
 
-    // Start pulse on left sonar
-    case SONAR_LEFT_START_SIGNAL:
-      if (currentTime - lastActionTime > SONAR_DELAY_US)
+    // Send pulse on left sonar
+    case SONAR_LEFT_SEND_SIGNAL:
+      if (currentTime - sonarLastActionTime > SONAR_DELAY_MS)
       {
-        digitalWrite(SONAR_TRIG_PIN_LEFT, HIGH);
-        lastActionTime = currentTime;
-        sonarPhase = SONAR_LEFT_STOP_SIGNAL;
-      }
-      break;
 
-    // After SONAR_SIGNAL_DURATION_US microseconds stop pulse on left sonar
-    case SONAR_LEFT_STOP_SIGNAL:
-      if (currentTime - lastActionTime > SONAR_SIGNAL_DURATION_US) 
-      {
-        digitalWrite(SONAR_TRIG_PIN_LEFT, LOW);
-        lastActionTime = currentTime;
+        digitalWrite(SONAR_LEFT_TRIG_PIN, HIGH);
+        delayMicroseconds(SONAR_SIGNAL_DURATION_US);
+        digitalWrite(SONAR_LEFT_TRIG_PIN, LOW);
+        sonarLastActionTime = currentTime;
         sonarPhase = SONAR_LEFT_READ_SIGNAL;
       }
       break;
 
-    // Get HIGH state duration from ECHO pin, or move to next phase if no signal after SONAR_RECEIVER_TIMEOUT_US microseconds
+    // Get HIGH state duration from ECHO pin, or move to next phase if no signal after SONAR_RECEIVER_TIMEOUT_MS milliseconds
     case SONAR_LEFT_READ_SIGNAL:
-      duration = pulseIn(SONAR_ECHO_PIN_LEFT, HIGH);
-      if (duration > 0) 
+      sonarSignalDuration = pulseIn(SONAR_LEFT_ECHO_PIN, HIGH);
+      if (sonarSignalDuration > 0)
       {
-        distanceLeft = duration * 0.034 / 2;
-        #ifdef DEBUG
-        if (distanceLeft > maxDistanceLeft) maxDistanceLeft = distanceLeft;
-        #endif
-        duration = 0;
-        lastActionTime = currentTime;
-        sonarPhase = SONAR_FORWARD_START_SIGNAL;
+        if (sonarSignalDuration > 12353) distanceLeft = SONAR_TOO_FAR; // if more than 210cm
+        else distanceLeft = (double)sonarSignalDuration * microsecondsToCentimeters;
+        if (minDistanceLeft > distanceLeft) minDistanceLeft = distanceLeft;
+        if (maxDistanceLeft < distanceLeft) maxDistanceLeft = distanceLeft;
+        distancesLeft[sonarUpdates] = distanceLeft;
+        
+        sonarSignalDuration = 0;
+        sonarLastActionTime = currentTime;
+        sonarPhase = SONAR_FRONT_SEND_SIGNAL;
       }
-      else if (currentTime - lastActionTime > SONAR_RECEIVER_TIMEOUT_US) 
+      else if (currentTime - sonarLastActionTime > SONAR_RECEIVER_TIMEOUT_MS)
       {
-        lastActionTime = currentTime;
-        sonarPhase = SONAR_FORWARD_START_SIGNAL;
-      }
-      break;
-
-    // Forward sonar
-
-    // Start pulse on forward sonar
-    case SONAR_FORWARD_START_SIGNAL:
-      if (currentTime - lastActionTime > SONAR_DELAY_US)
-      {
-        digitalWrite(SONAR_TRIG_PIN_FORWARD, HIGH);
-        lastActionTime = currentTime;
-        sonarPhase = SONAR_FORWARD_STOP_SIGNAL;
+        distanceLeft = SONAR_NO_READING;
+        distancesLeft[sonarUpdates] = distanceLeft;
+        sonarLastActionTime = currentTime;
+        sonarPhase = SONAR_FRONT_SEND_SIGNAL;
       }
       break;
 
-    // After SONAR_SIGNAL_DURATION_US microseconds stop pulse on forward sonar
-    case SONAR_FORWARD_STOP_SIGNAL:
-      if (currentTime - lastActionTime > SONAR_SIGNAL_DURATION_US) 
+    // Front sonar
+
+    // Send pulse on front sonar
+    case SONAR_FRONT_SEND_SIGNAL:
+      if (currentTime - sonarLastActionTime > SONAR_DELAY_MS)
       {
-        digitalWrite(SONAR_TRIG_PIN_FORWARD, LOW);
-        lastActionTime = currentTime;
-        sonarPhase = SONAR_FORWARD_READ_SIGNAL;
+        digitalWrite(SONAR_FRONT_TRIG_PIN, HIGH);
+        delayMicroseconds(SONAR_SIGNAL_DURATION_US);
+        digitalWrite(SONAR_FRONT_TRIG_PIN, LOW);
+        sonarLastActionTime = currentTime;
+        sonarPhase = SONAR_FRONT_READ_SIGNAL;
       }
       break;
 
-    // Get HIGH state duration from ECHO pin, or move to next phase if no signal after SONAR_RECEIVER_TIMEOUT_US microseconds 
-    case SONAR_FORWARD_READ_SIGNAL:
-      duration = pulseIn(SONAR_ECHO_PIN_FORWARD, HIGH);
-      if (duration > 0)
-       {
-        distanceForwards = duration * 0.034 / 2;
-        #ifdef DEBUG
-        if (distanceForwards > maxDistanceForwards) maxDistanceForwards = distanceForwards;
-        #endif
-        duration = 0;
-        lastActionTime = currentTime;
-        sonarPhase = SONAR_RIGHT_START_SIGNAL;
-      }
-      else if (currentTime - lastActionTime > SONAR_RECEIVER_TIMEOUT_US) 
+    // Get HIGH state duration from ECHO pin, or move to next phase if no signal after SONAR_RECEIVER_TIMEOUT_MS milliseconds
+    case SONAR_FRONT_READ_SIGNAL:
+      sonarSignalDuration = pulseIn(SONAR_FRONT_ECHO_PIN, HIGH);
+      if (sonarSignalDuration > 0)
       {
-        lastActionTime = currentTime;
-        sonarPhase = SONAR_RIGHT_START_SIGNAL;
+        if (sonarSignalDuration > 12353) distanceFront = SONAR_TOO_FAR; // if more than 210cm
+        else distanceFront = (double)sonarSignalDuration * microsecondsToCentimeters;
+        if (minDistanceFront > distanceFront) minDistanceFront = distanceFront;
+        if (maxDistanceFront < distanceFront) maxDistanceFront = distanceFront;
+        distancesFront[sonarUpdates] = distanceFront;
+
+        sonarSignalDuration = 0;
+        sonarLastActionTime = currentTime;
+        sonarPhase = SONAR_RIGHT_SEND_SIGNAL;
+      }
+      else if (currentTime - sonarLastActionTime > SONAR_RECEIVER_TIMEOUT_MS)
+      {
+        distanceFront = SONAR_NO_READING;
+        distancesFront[sonarUpdates] = distanceFront;
+        sonarLastActionTime = currentTime;
+        sonarPhase = SONAR_RIGHT_SEND_SIGNAL;
       }
       break;
 
     // Right sonar
 
-    // Start pulse on right sonar
-    case SONAR_RIGHT_START_SIGNAL:
-      if (currentTime - lastActionTime > SONAR_DELAY_US)
+    // Send pulse on right sonar
+    case SONAR_RIGHT_SEND_SIGNAL:
+      if (currentTime - sonarLastActionTime > SONAR_DELAY_MS)
       {
-        digitalWrite(SONAR_TRIG_PIN_RIGHT, HIGH);
-        lastActionTime = currentTime;
-        sonarPhase = SONAR_RIGHT_STOP_SIGNAL;
-      }
-      break;
-
-    // After SONAR_SIGNAL_DURATION_US microseconds stop pulse on right sonar
-    case SONAR_RIGHT_STOP_SIGNAL:
-      if (currentTime - lastActionTime > SONAR_SIGNAL_DURATION_US) 
-      {
-        digitalWrite(SONAR_TRIG_PIN_RIGHT, LOW);
-        lastActionTime = currentTime;
+        digitalWrite(SONAR_RIGHT_TRIG_PIN, HIGH);
+        delayMicroseconds(SONAR_SIGNAL_DURATION_US);
+        digitalWrite(SONAR_RIGHT_TRIG_PIN, LOW);
+        sonarLastActionTime = currentTime;
         sonarPhase = SONAR_RIGHT_READ_SIGNAL;
       }
       break;
 
-    // Get HIGH state duration from ECHO pin, or move to next phase if no signal after SONAR_RECEIVER_TIMEOUT_US microseconds
-    case SONAR_RIGHT_READ_SIGNAL: 
+    // Get HIGH state duration from ECHO pin, or move to next phase if no signal after SONAR_RECEIVER_TIMEOUT_MS milliseconds
+    case SONAR_RIGHT_READ_SIGNAL:
     {
-      duration = pulseIn(SONAR_ECHO_PIN_RIGHT, HIGH);
-      if (duration > 0) 
+      sonarSignalDuration = pulseIn(SONAR_RIGHT_ECHO_PIN, HIGH);
+      if (sonarSignalDuration > 0)
       {
-        distanceRight = duration * 0.034 / 2;
-        #ifdef DEBUG
-        if (distanceRight > maxDistanceRight) maxDistanceRight = distanceRight;
-        #endif
-        duration = 0;
-        lastActionTime = currentTime;
-        sonarPhase = SONAR_LEFT_START_SIGNAL;
+        if (sonarSignalDuration > 12353) distanceRight = SONAR_TOO_FAR; // if more than 210cm
+        else distanceRight = (double)sonarSignalDuration * microsecondsToCentimeters;
+        if (minDistanceRight > distanceRight) minDistanceRight = distanceRight;
+        if (maxDistanceRight < distanceRight) maxDistanceRight = distanceRight;
+        distancesRight[sonarUpdates] = distanceRight;
+
+        sonarSignalDuration = 0;
+        sonarLastActionTime = currentTime;
+        sonarPhase = SONAR_LEFT_SEND_SIGNAL;
+        sonarUpdates++;
       }
-      else if (currentTime - lastActionTime > SONAR_RECEIVER_TIMEOUT_US) 
+      else if (currentTime - sonarLastActionTime > SONAR_RECEIVER_TIMEOUT_MS)
       {
-        lastActionTime = currentTime;
-        sonarPhase = SONAR_LEFT_START_SIGNAL;
+        distanceRight = SONAR_NO_READING;
+        distancesRight[sonarUpdates] = distanceRight;
+        sonarLastActionTime = currentTime;
+        sonarPhase = SONAR_LEFT_SEND_SIGNAL;
+        sonarUpdates++;
       }
-    } 
+    }
     break;
   }
 }
 
 
 
-////////////////////////////
-// WHEEL ROTATION TRACKER //
-////////////////////////////
+/////////////////////
+// ROTATION SENSOR //
+/////////////////////
 
-const unsigned long debounce = 10;  // Debounce time for more accurate rotation sensor reading
+#define DEBOUNCE_TIME_MS 10; // Debounce time for more accurate rotation sensor reading
 
 // Counts the interrupts of the rotation sensor for the left wheel
-void countRotationsLeft() 
+void countRotationsLeft()
 {
   static unsigned long timer;
-  static bool lastState;
   noInterrupts();
 
-  if (millis() > timer) 
+  if (millis() > timer)
   {
-    bool state = digitalRead(MOTOR_LR);
-    if(state != lastState) 
-    {
-      LRRotations++;
-      lastState = state;
-    }
-    
-    timer = millis() + debounce;
+    leftRotationTicks++;
+    timer = millis() + DEBOUNCE_TIME_MS;
   }
 
   interrupts();
 }
 
 // Counts the interrupts of the rotation sensor for the right wheel
-void countRotationsRight() 
+void countRotationsRight()
 {
   static unsigned long timer;
-  static bool lastState;
   noInterrupts();
 
-  if (millis() > timer) 
+  if (millis() > timer)
   {
-    bool state = digitalRead(MOTOR_RR);
-
-    if(state != lastState) {
-      RRRotations++;
-      lastState = state;
-    }
-
-    timer = millis() + debounce;
+    rightRotationTicks++;
+    timer = millis() + DEBOUNCE_TIME_MS;
   }
 
   interrupts();
@@ -470,148 +479,113 @@ void countRotationsRight()
 // MOTOR //
 ///////////
 
-#define SPEED 200
-#define MOTOR_STOP         0    // Motor stopping speed
+#define FORWARDS_MODE LOW
+#define BACKWARDS_MODE HIGH
 
-// Makes the relaybot drive in a straight line forward
-void goForwards() 
+void setMotors(int leftMotorSpeed, int rightMotorSpeed)
 {
-  analogWrite(MOTOR_LF, SPEED - 5);
-  analogWrite(MOTOR_RF, SPEED);
-  digitalWrite(MOTOR_LB, MOTOR_STOP);
-  digitalWrite(MOTOR_RB, MOTOR_STOP);
-}
+  leftSpeed = leftMotorSpeed;
+  rightSpeed = rightMotorSpeed;
 
-void adjustLeft()
-{
-  analogWrite(MOTOR_LF, SPEED - 40);
-  analogWrite(MOTOR_RF, SPEED + 40);
-  digitalWrite(MOTOR_LB, MOTOR_STOP);
-  digitalWrite(MOTOR_RB, MOTOR_STOP);  
-}
-
-void adjustLeftHard()
-{
-  analogWrite(MOTOR_LF, 255 - 190);
-  analogWrite(MOTOR_RF, SPEED + 40);
-  digitalWrite(MOTOR_LB, 1);
-  digitalWrite(MOTOR_RB, MOTOR_STOP);  
-}
-
-void adjustRight()
-{
-  analogWrite(MOTOR_LF, SPEED + 40);
-  analogWrite(MOTOR_RF, SPEED - 35);
-  digitalWrite(MOTOR_LB, MOTOR_STOP);
-  digitalWrite(MOTOR_RB, MOTOR_STOP);  
-}
-
-void adjustRightHard()
-{
-  analogWrite(MOTOR_LF, SPEED + 40);
-  analogWrite(MOTOR_RF, 255 - 190);
-  digitalWrite(MOTOR_LB, MOTOR_STOP);
-  digitalWrite(MOTOR_RB, 1);  
-}
-
-// Makes the relaybot drive in a straight line backwards
-void goBackwards(unsigned int speed) 
-{
-  digitalWrite(MOTOR_LB, 1);
-  digitalWrite(MOTOR_RB, 1);
-  analogWrite(MOTOR_LF, (255 - speed));
-  analogWrite(MOTOR_RF, (255 - speed));
-}
-
-// Stops all the motors
-void stopDriving() 
-{
-  digitalWrite(MOTOR_LB, MOTOR_STOP);
-  digitalWrite(MOTOR_RB, MOTOR_STOP);
-  analogWrite(MOTOR_LF, MOTOR_STOP);
-  analogWrite(MOTOR_RF, MOTOR_STOP); 
-}
-
-// Rotate the relaybot on its axis to the right
-void rotateRight() 
-{
-  digitalWrite(MOTOR_LB, MOTOR_STOP);
-  digitalWrite(MOTOR_RB, 1);
-  analogWrite(MOTOR_LF, 255);
-  analogWrite(MOTOR_RF, MOTOR_STOP); 
-}
-
-// Rotate the relaybot on its axis to the left
-void rotateLeft()
-{
-  digitalWrite(MOTOR_RB, MOTOR_STOP);
-  digitalWrite(MOTOR_LB, 1);
-  analogWrite(MOTOR_RF, 255);
-  analogWrite(MOTOR_LF, MOTOR_STOP); 
-}
-
-void turnAround()
-{
-  digitalWrite(MOTOR_LB, 1);
-  digitalWrite(MOTOR_RB, 1);
-  analogWrite(MOTOR_RF, 50);
-  analogWrite(MOTOR_LF, 150);
-  delay(2000);
-  stopDriving();
-}
-
-void setMotors(int leftSpeed, int rightSpeed) 
-{
-  if (leftSpeed >= 0) 
+  if (leftMotorSpeed >= 0)
   {
-    analogWrite (MOTOR_LF, leftSpeed);
-    digitalWrite(MOTOR_LB, 0);
+    analogWrite (MOTOR_LEFT_POWER_PIN, leftMotorSpeed);
+    digitalWrite(MOTOR_LEFT_MODE_PIN, FORWARDS_MODE);
   }
-  else 
-  { // leftSpeed < 0
-    analogWrite (MOTOR_LF, 255+leftSpeed);
-    digitalWrite(MOTOR_LB, 1);
+  else /* leftMotorSpeed < 0 */
+  {
+    analogWrite (MOTOR_LEFT_POWER_PIN, 255 + leftMotorSpeed);
+    digitalWrite(MOTOR_LEFT_MODE_PIN, BACKWARDS_MODE);
   }
 
-  if (rightSpeed >= 0) 
+  if (rightMotorSpeed >= 0)
   {
-    analogWrite (MOTOR_RF, rightSpeed);
-    digitalWrite(MOTOR_RB, 0);
+    analogWrite (MOTOR_RIGHT_POWER_PIN, rightMotorSpeed);
+    digitalWrite(MOTOR_RIGHT_MODE_PIN, FORWARDS_MODE);
   }
-  else
-  { // rightSpeed < 0
-    analogWrite (MOTOR_RF, 255+rightSpeed);
-    digitalWrite(MOTOR_RB, 1);
+  else /* rightMotorSpeed < 0 */
+  {
+    analogWrite (MOTOR_RIGHT_POWER_PIN, 255 + rightMotorSpeed);
+    digitalWrite(MOTOR_RIGHT_MODE_PIN, BACKWARDS_MODE);
   }
 }
 
-void driveStraight()
+void drive(char mode)
 {
-  static unsigned long timer = micros();
-  unsigned int difference = 0;
-  if (currentTime - timer >= 10000)
+  switch(mode)
   {
-      timer = currentTime;
+    case STOP:
+    {
+      setMotors(0, 0);
+    } break;
+    case FORWARDS:
+    {
+      setMotors(forwardsLeftMotorSpeed, forwardsRightMotorSpeed);
+    } break;
+    case BACKWARDS:
+    {
+      setMotors(backwardsLeftMotorSpeed, backwardsRightMotorSpeed);
+    } break;
 
-      if (RRRotations < LRRotations)
-      {
-        difference = LRRotations - RRRotations;
-        leftSpeed = SPEED - (difference);
-        leftSpeed = constrain(leftSpeed, 160, 255);
-        rightSpeed = SPEED;
-      }
-      else
-      {
-        difference = RRRotations - LRRotations;
-        rightSpeed = SPEED - (difference);
-        rightSpeed = constrain(rightSpeed, 160, 255);
-        leftSpeed = SPEED;
-      }
+    case TURN_LEFT:
+    {
+      setMotors(leftTurnLeftMotorSpeed, leftTurnRightMotorSpeed);
+    } break;
+    case TURN_RIGHT:
+    {
+      setMotors(rightTurnLeftMotorSpeed, rightTurnRightMotorSpeed);
+    } break;
+    case TURN_LEFT_BACK:
+    {
+      setMotors(-leftTurnLeftMotorSpeed, -leftTurnRightMotorSpeed);
+    } break;
+    case TURN_RIGHT_BACK:
+    {
+      setMotors(-rightTurnLeftMotorSpeed, -rightTurnRightMotorSpeed);
+    } break;
 
-      analogWrite(MOTOR_LF, leftSpeed);
-      analogWrite(MOTOR_RF, rightSpeed);
-      digitalWrite(MOTOR_LB, MOTOR_STOP);
-      digitalWrite(MOTOR_RB, MOTOR_STOP);
+    case SHORT_LEFT:
+    {
+      setMotors(0, leftTurnRightMotorSpeed);
+    } break;
+    case SHORT_RIGHT:
+    {
+      setMotors(rightTurnLeftMotorSpeed, 0);
+    } break;
+    case SHORT_LEFT_BACK:
+    {
+      setMotors(0, -leftTurnRightMotorSpeed);
+    } break;
+    case SHORT_RIGHT_BACK:
+    {
+      setMotors(-rightTurnLeftMotorSpeed, 0);
+    } break;
+
+    case ROTATE_LEFT:
+    {
+      setMotors(backwardsLeftMotorSpeed, forwardsRightMotorSpeed);
+    } break;
+    case ROTATE_RIGHT:
+    {
+      setMotors(forwardsLeftMotorSpeed, backwardsRightMotorSpeed);
+    } break;
+
+    case ADJUST_LEFT:
+    {
+      setMotors(160, 240);
+    } break;
+    case ADJUST_RIGHT:
+    {
+      setMotors(240, 165);
+    } break;
+    case ADJUST_LEFT_HARD:
+    {
+      setMotors(-190, 240);
+    } break;
+    case ADJUST_RIGHT_HARD:
+    {
+      setMotors(240, -190);
+    } break;
   }
 }
 
@@ -621,190 +595,634 @@ void driveStraight()
 // GRIPPER //
 /////////////
 
-#define GRIPPER_OPEN   1600  // Value for gripper being open
-#define GRIPPER_CLOSED 1010  // Value for gripper being closed
+#define GRIPPER_OPEN   1600 // Value for gripper being open
+#define GRIPPER_CLOSED 1010 // Value for gripper being closed
 
 // Sets the gripper position to the given pulse
-void setGripper(int pulse) 
+void setGripper(unsigned int pulse)
 {
   for (unsigned char i = 0; i < 8; i++)
-   {
+  {
     digitalWrite(GRIPPER_PIN, HIGH);
     delayMicroseconds(pulse);
     digitalWrite(GRIPPER_PIN, LOW);
   }
 }
 
-////////
-// AI //
-////////
 
-#define MAZE_SIZE 8
-unsigned char path[MAZE_SIZE*MAZE_SIZE];  // 512 bytes
 
-void followRightWall() 
+//////////////////////////
+// PHASE - STARTUP_WAIT //
+//////////////////////////
+
+void phase_startupWait()
 {
-  switch (currentTask) 
+  if (startupDelay())
   {
-    static unsigned int oldRRR = RRRotations;
-    static unsigned int oldLRR = LRRotations;
-    case NO_TASK:
-      oldRRR = RRRotations;
-      oldLRR = LRRotations;
+    programPhase = CALIBRATE;
+  }
+}
+bool startupDelay()
+{
+  return currentTime - programStartTime > STARTUP_DELAY;
+}
+
+
+
+////////////////////////////
+// PHASE - WAIT_FOR_START //
+////////////////////////////
+
+void phase_waitForStart()
+{
+  if (hasReceivedSignal())
+  {
+    programPhase = CALIBRATE;
+  }
+}
+
+bool hasReceivedSignal()
+{
+  if (Serial.available())
+  {
+    String message = Serial.readStringUntil('\n');
+    Serial.print("Received: ");
+    Serial.println(message);
+
+    if (message.length() >= 2 && message[0] == SLAVE_ID + '0' && message[1] == '?')
+    {
+      Serial.print("Responding to Master: Slave ");
+      Serial.print(SLAVE_ID);
+      Serial.println(" Response");
+      return true;
+    }
+  }
+  else
+  {
+    // maybe flash lights to say that we cannot connect to base
+  }
+
+  return false;
+}
+
+
+
+///////////////////////
+// PHASE - CALIBRATE //
+///////////////////////
+
+void phase_calibrate()
+{
+  // verify distance on left and front sensor (min 5cm)
+  // set calibration time based on assumed speed and front distance
+
+  // rotate right
+  // forward 5 seconds
+  // count rotations
+  // backwards 5 seconds (give wheels time to decelerate and accelerate)
+  // count rotations
+  // adjust wheel speed for straight driving
+  // adjust wheel speed for backwards speed same as front
+
+  // drive full circle until we see the line again
+  // adjust turn time to 1/4 of full circle time
+
+
+  // or just don't bother
+  programPhase = DRIVE_TO_SQUARE;
+}
+
+
+
+//////////////////////
+// PHASE - MAP_MAZE //
+//////////////////////
+
+#define MAX_PATH_LENGTH 49
+unsigned char pathLength = 0;
+unsigned char pathMapped[MAX_PATH_LENGTH];
+unsigned char pathIndex = 0;
+
+void phase_mapMaze()
+{
+  #ifdef SKIP_MAPPING_MAZE
+    programPhsase = DRIVE_TO_SQUARE;
+    return;
+  #endif
+
+  switch (currentTask)
+  {
+    case CHOOSE_TASK:
+    {
+      //TODO check if should go next phase
+      drive(STOP);
+      // updateAllSonars();
+
       if (distanceRight > 20)
       {
-        RRRotations = 0;
-        LRRotations = 0;
-        goForwards();
-        currentTask = FORWARD_BEFORE_RIGHT;
+        addToMappedPath(TURN_RIGHT_90);
+        startTask(TURN_RIGHT_90);
       }
-      else if (distanceForwards < 20)
+      else if (distanceFront > 30)
       {
-        RRRotations = 0;
-        currentTask = LEFT_90;
+        addToMappedPath(DRIVE_FORWARDS_30);
+        startTask(DRIVE_FORWARDS_30);
       }
-      else  
+      else if (distanceLeft > 20)
       {
-        currentTask = FORWARD;
-      }
-      break;
-    case FORWARD: 
-      if ((RRRotations - oldRRR) > 10)
-      {
-        stopDriving();
-        currentTask = NO_TASK;     
-      }
-      driveStraight();
-      break;
-    case RIGHT_90:
-      if (LRRotations > 4)
-      {
-        stopDriving();
-        currentTask = NO_TASK;
-      }
-      break;
-    case LEFT_90:
-      if (RRRotations > 3)
-      {
-        stopDriving();
-        currentTask = NO_TASK;
-      }
-      break;
-    case FORWARD_BEFORE_RIGHT:
-      if (RRRotations > 5)
-      {
-        LRRotations = 0;
-        rotateRight();
-        currentTask = RIGHT_90;
-      }
-      break;
-  }
-}
- 
-void driveToSquare()
-{
-  // // TODO: implement start signal
-  if (startSignalRecieved)
-  {
-    while (!allBlack)
-    {
-      readLineSensor();
-      goForwards();
-      delay(100);
-    }
-    readLineSensor();
-    if (allBlack)
-    {
-      goForwards();
-      delay(500);
-      setGripper(GRIPPER_CLOSED);
-      rotateLeft();
-      delay(480);
-      goForwards();
-      delay(500);
-      squarePassed = true;  
-      startSignalRecieved = false;
-    }
-  }
-}
-
-void followLineStart()
-{
-  bool forwards = (lineSensorValue[2] >= colorBlack) && (lineSensorValue[3] >= colorBlack);
-  bool turnLeft = (lineSensorValue[0] >= colorBlack) || (lineSensorValue[1] >= colorBlack);
-  bool turnRight = (lineSensorValue[4] >= colorBlack) || (lineSensorValue[5] >= colorBlack);
-  unsigned char lastValue = 0;
-  static unsigned long timer = currentTime;
-
-  if ((currentTime - timer) > 1000)
-  {
-    if (squarePassed)
-    {
-      if (!allWhite)
-      {
-        if (forwards == true)
-        {
-          goForwards();
-        }
-        else if (turnRight == true)
-        {
-          adjustRight(); 
-          lastValue = 1;
-        }
-        else if (turnLeft == true)
-        {
-          adjustLeft();
-          lastValue = 2;
-        }
+        addToMappedPath(TURN_LEFT_90);
+        startTask(TURN_LEFT_90);
       }
       else
       {
-        if (lastValue == 1)
-        {
-          adjustRight();
-        }
-        else
-        {
-          adjustLeft();
-        }
+        cutFromMappedPath(1);
+        turnAround();
+        //TODO after turning around keep removing from mapped path as long as we keep doing opposite moves to saved ones
       }
-    }
-      else
-      {
-        mazeEntered = true;
-      }
-    timer = currentTime;
+    } break;
+  }
+
+  updateCurrentTask();
+
+  // checkLineSensorForFinish();
+}
+
+void addToMappedPath(unsigned char action)
+{
+  pathMapped[pathIndex++] = action;
+}
+void cutFromMappedPath(unsigned char number)
+{
+  for (unsigned char i = 0; i < number; i++)
+  {
+    pathMapped[pathIndex--] = CHOOSE_TASK;
   }
 }
 
-void followLineEnd()
+void resetTaskVariables(unsigned char task, unsigned long duration, unsigned char _nextTask)
 {
-  bool forwards = (lineSensorValue[2] >= colorBlack) && (lineSensorValue[3] >= colorBlack);
-  bool turnLeft = (lineSensorValue[0] >= colorBlack) || (lineSensorValue[1] >= colorBlack);
+  printDebug(String("Setting task: ") + translateTask(task) + " for " + duration + "ms");
+  printDebug(String("Next task: ") + translateTask(_nextTask));
+  currentTaskStart = currentTime;
+  currentTask = task;
+  currentTaskDuration = duration;
+  nextTask = _nextTask;
+  prevLeftRotationTicks = leftRotationTicks;
+  prevRightRotationTicks = rightRotationTicks;
+}
+void resetTaskVariables(unsigned char task)
+{
+  resetTaskVariables(task, 100, CHOOSE_TASK);
+}
+
+void updateCurrentTask()
+{
+  if (currentTime - currentTaskStart > currentTaskDuration)
+  {
+    startTask(nextTask);
+    return;
+  }
+
+  if (leftRotationTicks >= targetLeftRotationTicks)
+  {
+    startTask(nextTask);
+    return;
+  }
+
+  if (rightRotationTicks >= targetRightRotationTicks)
+  {
+    startTask(nextTask);
+    return;
+  }
+
+  if (currentTask == UPDATE_SONAR || currentTask == UPDATE_SONAR_2)
+  {
+    if (minDistanceLeft < SONAR_NO_READING && minDistanceFront < SONAR_NO_READING && minDistanceRight < SONAR_NO_READING)
+    {
+      startTask(nextTask);
+      printDebug(String("Sonars updated: ") + distanceLeft + ", " + distanceFront + ", " + distanceRight);
+    }
+
+    if (sonarUpdates >= MAX_SONAR_UPDATES)
+    {
+      startTask(nextTask);
+      printDebug(String("Sonars updated: ") + distanceLeft + ", " + distanceFront + ", " + distanceRight);
+    }
+  }
+}
+
+void startTask(unsigned char task)
+{
+  printDebug(String("Starting task ") + translateTask(task));
+  targetLeftRotationTicks = MAX_INT;
+  targetRightRotationTicks = MAX_INT;
+  hazardLights();
+
+  switch (task)
+  {
+    case CHOOSE_TASK:
+    {
+      resetTaskVariables(task, 1000, CHOOSE_TASK);
+      drive(STOP);
+    } break;
+
+    case DRIVE_FORWARDS_30: { // original: 1176 | 30
+      resetTaskVariables(task, 1120, UPDATE_SONAR); // 30 ticks => targetLeftRotationTicks = leftRotationTicks+30
+      drive(FORWARDS);
+    } break;
+    case DRIVE_BACKWARDS_30: { // original: 1176 | 30
+      resetTaskVariables(task, 1120, UPDATE_SONAR); // 30 ticks
+      drive(BACKWARDS);
+    } break;
+
+    case TURN_LEFT_90: { // original: 1263 | 8
+      resetTaskVariables(task, 1263, UPDATE_SONAR); // 8 ticks
+      drive(TURN_LEFT);
+    } break;
+    case TURN_RIGHT_90: { // original: 1263 | 8
+      resetTaskVariables(task, 1255, UPDATE_SONAR); // 8 ticks
+      drive(TURN_RIGHT);
+    } break;
+    case SHORT_LEFT_90: { // original: 1263 | 8
+      resetTaskVariables(task, 800, UPDATE_SONAR); // 8 ticks
+      drive(SHORT_LEFT);
+    } break;
+    case SHORT_RIGHT_90: { // original: 1263 | 8
+      resetTaskVariables(task, 800, UPDATE_SONAR); // 8 ticks
+      drive(SHORT_RIGHT);
+    } break;
+
+    case ROTATE_LEFT_180: { // original: 1336 | 8.5
+      resetTaskVariables(task, 800, UPDATE_SONAR); // 8.462 ticks
+      drive(ROTATE_LEFT);
+    } break;
+    case ROTATE_RIGHT_180: { // original: 1336 | 8.5
+      resetTaskVariables(task, 800, UPDATE_SONAR); // 8.462 ticks
+      drive(ROTATE_RIGHT);
+    } break;
+    case TURN_AROUND_LEFT: { // original: 1263 | 30
+      resetTaskVariables(task, 800, SHORT_LEFT_90); // TODO calculate
+      drive(SHORT_RIGHT_BACK);
+    } break;
+    case TURN_AROUND_RIGHT: { // original: 1263 | 30
+      resetTaskVariables(task, 800, SHORT_RIGHT_90); // TODO calculate
+      drive(SHORT_LEFT_BACK);
+    } break;
+
+    case UPDATE_SONAR:
+    {
+      resetSonar();
+      resetTaskVariables(task, 350, DRIVE_FORWARDS_2);
+      drive(STOP);
+    } break;
+    case DRIVE_FORWARDS_2:
+    {
+      resetTaskVariables(task, 79, UPDATE_SONAR_2);
+      drive(FORWARDS);
+    } break;
+    case UPDATE_SONAR_2:
+    {
+      resetTaskVariables(task, 350, CHOOSE_TASK);
+      drive(STOP);
+    } break;
+    
+    case ADJUST_ROTATION:
+    {
+      adjustRotation();
+      resetTaskVariables(task, 1000, CHOOSE_TASK);
+    } break;
+    case ADJUST_POSITION:
+    {
+
+    } break;
+
+    case PAUSE:
+    {
+      resetTaskVariables(task, 1000, CHOOSE_TASK);
+      drive(STOP);
+    } break;
+  }
+}
+
+void resetSonar()
+{
+  sonarUpdates = 0;
+  minDistanceLeft = SONAR_NO_READING;
+  minDistanceFront = SONAR_NO_READING;
+  minDistanceRight = SONAR_NO_READING;
+  maxDistanceLeft = 0;
+  maxDistanceFront = 0;
+  maxDistanceRight = 0;
+
+  for (int i = 0; i < MAX_SONAR_UPDATES; i++)
+  {
+    distancesLeft[i] = distancesFront[i] = distancesRight[i] = SONAR_NO_READING;
+  }
+}
+
+void adjustRotation()
+{
+  unsigned int lastTaskLeftRotationTicks = leftRotationTicks - prevLeftRotationTicks;
+  unsigned int lastTaskRightRotationTicks = rightRotationTicks - prevRightRotationTicks;
+
+  switch (currentTask)
+  {
+    case TURN_LEFT_90:
+    case SHORT_LEFT_90:
+    case ROTATE_LEFT_180:
+    {
+      lastTaskLeftRotationTicks += 17;
+    } break;
+    case TURN_RIGHT_90:
+    case SHORT_RIGHT_90:
+    case ROTATE_RIGHT_180:
+    {
+      lastTaskRightRotationTicks += 17;
+    } break;
+  }
+
+  if (lastTaskLeftRotationTicks > lastTaskRightRotationTicks + 1)
+  {
+    targetRightRotationTicks = rightRotationTicks + lastTaskLeftRotationTicks - lastTaskRightRotationTicks;
+    drive(SHORT_LEFT);
+    //TODO adjust speed variables depending on task
+    printDebug(String("Adjusting rotation left for ") + (targetRightRotationTicks - leftRotationTicks) + " ticks");
+  }
+  if (lastTaskRightRotationTicks > lastTaskLeftRotationTicks + 1)
+  {
+    targetLeftRotationTicks = leftRotationTicks + lastTaskRightRotationTicks - lastTaskLeftRotationTicks;
+    drive(SHORT_RIGHT);
+    //TODO adjust speed variables depending on task
+    printDebug(String("Adjusting rotation right for ") + (targetLeftRotationTicks - rightRotationTicks) + " ticks");
+  }
+}
+
+void adjustPosition()
+{
+
+}
+
+// we assume we're surrounded by 3 walls and not touching any wall
+void turnAround()
+{
+  if (distanceRight > distanceLeft)
+  {
+    if (maxDistanceLeft > 5)
+    {
+      startTask(TURN_AROUND_RIGHT);
+    }
+    else
+    {
+      startTask(ROTATE_RIGHT_180);
+    }
+  }
+  else
+  {
+    if (maxDistanceRight > 5)
+    {
+      startTask(TURN_AROUND_LEFT);
+    }
+    else
+    {
+      startTask(ROTATE_LEFT_180);
+    }
+  }
+}
+
+void checkLineSensorForFinish()
+{
+  updateLineSensor();
+
+  if (!allWhite)
+  {
+    finishFound = true;
+  }
+}
+
+
+
+/////////////////////////////
+// PHASE - RETURN_TO_START //
+/////////////////////////////
+
+void phase_returnToStart()
+{
+
+  programPhase = WAIT_FOR_SIGNAL;
+}
+
+
+
+/////////////////////////////
+// PHASE - WAIT_FOR_SIGNAL //
+/////////////////////////////
+
+void phase_waitForSignal()
+{
+  if (hasReceivedSignal())
+  {
+    programPhase = DRIVE_TO_SQUARE;
+  }
+}
+
+
+long timr = 0;
+/////////////////////////////
+// PHASE - DRIVE_TO_SQUARE //
+/////////////////////////////
+
+void phase_driveToSquare()
+{
+  while (!allBlack)
+  {
+    updateLineSensor();
+    drive(FORWARDS);
+    delay(130);
+  }
+
+  updateLineSensor();
+
+  if (allBlack)
+  {
+    drive(FORWARDS);
+    delay(100);
+    setGripper(GRIPPER_CLOSED);
+    drive(ROTATE_LEFT);
+    delay(480);
+    drive(FORWARDS);
+    delay(500);
+    programPhase = FOLLOW_LINE_START;
+    timr = currentTime;
+  }
+}
+
+
+
+///////////////////////////////
+// PHASE - FOLLOW_LINE_START //
+///////////////////////////////
+
+#define NONE  0
+#define LEFT  1
+#define RIGHT 2
+
+void phase_followLineStart()
+{
+  static unsigned char lastDirection = NONE;
+
+  bool goForwards = (lineSensorValue[2] >= colorBlack) && (lineSensorValue[3] >= colorBlack);
+  bool turnLeft   = (lineSensorValue[0] >= colorBlack) || (lineSensorValue[1] >= colorBlack);
+  bool turnRight  = (lineSensorValue[4] >= colorBlack) || (lineSensorValue[5] >= colorBlack);
+
+  if (allWhite)
+  {
+    if (lastDirection == LEFT)
+    {
+      drive(ADJUST_LEFT);
+    }
+    else
+    {
+      drive(ADJUST_RIGHT);
+    }
+  }
+  else
+  {
+    if (goForwards == true)
+    {
+      drive(FORWARDS);
+    }
+    else if (turnRight == true)
+    {
+      drive(ADJUST_RIGHT);
+      lastDirection = RIGHT;
+    }
+    else if (turnLeft == true)
+    {
+      drive(ADJUST_LEFT);
+      lastDirection = LEFT;
+    }
+  }
+  setGripper(GRIPPER_CLOSED);
+  resetSonar();
+  updateSonar();
+
+  if (distanceLeft < 30 && distanceFront < 40 && distanceRight < 30)
+  {
+    programPhase = CONTINUE_MAZE;
+  }
+  if (currentTime - timr > 3000)
+  {
+    programPhase = CONTINUE_MAZE;
+  }
+}
+
+
+
+////////////////////////
+// PHASE - DRIVE_PATH //
+////////////////////////
+
+void phase_drivePath()
+{
+  switch (currentTask)
+  {
+    case CHOOSE_TASK:
+    {
+      // updateAllSonars();
+
+      if (pathIndex == pathLength)
+      {
+        programPhase = CONTINUE_MAZE;
+      }
+      else
+      {
+        currentTask = pathMapped[pathIndex++];
+        startTask(currentTask);
+      }
+    } break;
+
+    case PATH_FINISHED:
+    {
+      programPhase = FOLLOW_LINE_END;
+    } break;
+  }
+
+  updateCurrentTask();
+}
+
+
+
+///////////////////////////
+// PHASE - CONTINUE_MAZE //
+///////////////////////////
+
+void phase_continueMaze()
+{
+  checkLineSensorForFinish();
+  if (finishFound)
+  {
+    programPhase = FOLLOW_LINE_END;
+    return;
+  }
+  switch (currentTask)
+  {
+    case CHOOSE_TASK:
+    {
+      if (maxDistanceRight > 20)
+      {
+        startTask(TURN_RIGHT_90);
+      }
+      else if (maxDistanceFront > 25)
+      {
+        startTask(DRIVE_FORWARDS_30);
+      }
+      else if (maxDistanceLeft > 20)
+      {
+        startTask(TURN_LEFT_90);
+      }
+      else
+      {
+        turnAround();
+      }
+    } break;
+  }
+  setGripper(GRIPPER_CLOSED);
+  updateCurrentTask();
+}
+
+
+
+/////////////////////////////
+// PHASE - FOLLOW_LINE_END //
+/////////////////////////////
+
+void phase_followLineEnd()
+{
+  bool forwards =  (lineSensorValue[2] >= colorBlack) && (lineSensorValue[3] >= colorBlack);
+  bool turnLeft =  (lineSensorValue[0] >= colorBlack) || (lineSensorValue[1] >= colorBlack);
   bool turnRight = (lineSensorValue[4] >= colorBlack) || (lineSensorValue[5] >= colorBlack);
   unsigned char lastValue = 0;
   static unsigned long timer = currentTime;
+  greenLights();
 
   if ((currentTime - timer) > 1000)
   {
-    if (finishFound)
-    {
       if (!allBlack)
       {
         if (!allWhite)
         {
           if (forwards == true)
           {
-            goForwards();
+            drive(FORWARDS);
           }
           else if (turnRight == true)
           {
-            adjustRight(); 
+            drive(ADJUST_RIGHT);
             lastValue = 1;
           }
           else if (turnLeft == true)
           {
-            adjustLeft();
+            drive(ADJUST_LEFT);
             lastValue = 2;
           }
         }
@@ -812,32 +1230,112 @@ void followLineEnd()
         {
           if (lastValue == 1)
           {
-            adjustRightHard();
+            drive(ADJUST_RIGHT_HARD);
           }
           else
           {
-            adjustLeftHard();
+            drive(ADJUST_LEFT_HARD);
           }
         }
       }
       else
       {
         setGripper(GRIPPER_OPEN);
-        stopDriving();
-        while (true){}
+        drive(STOP);
+        programPhase = FINISH;
       }
-    }
     timer = currentTime;
   }
 }
 
-void findFinish()
+
+
+////////////////////
+// PHASE - FINISH //
+////////////////////
+
+void phase_finish()
 {
-  if ((!allWhite) && (needToFindFinish))
-  {
-    finishFound = true;
-  }
+  blueLights();
 }
+
+
+
+///////////
+// DEBUG //
+///////////
+
+void printDebug(String message)
+{
+  #ifdef DEBUG
+    Serial.println(message);
+  #endif
+}
+
+void printDebug(const char* prefix, bool printDetails)
+{
+  #ifdef DEBUG
+    if (printDetails) Serial.println(String(prefix)
+        + "motor=(" + leftSpeed + "," + rightSpeed + "), "
+        + "sonar=(" + distanceLeft + ", " + distanceFront + ", " + distanceRight + "), "
+        + "rotations=(" + leftRotationTicks + ", " + rightRotationTicks + ")");
+    else Serial.println(prefix);
+  #endif
+}
+
+String translateTask(unsigned char task)
+{
+  switch (task)
+  {
+    case CHOOSE_TASK: return String("CHOOSE_TASK");
+    case DRIVE_FORWARDS_30: return String("DRIVE_FORWARDS_30");
+    case DRIVE_BACKWARDS_30: return String("DRIVE_BACKWARDS_30");
+    case TURN_LEFT_90: return String("TURN_LEFT_90");
+    case TURN_RIGHT_90: return String("TURN_RIGHT_90");
+    case SHORT_LEFT_90: return String("SHORT_LEFT_90");
+    case SHORT_RIGHT_90: return String("SHORT_RIGHT_90");
+    case ROTATE_LEFT_180: return String("ROTATE_LEFT_180");
+    case ROTATE_RIGHT_180: return String("ROTATE_RIGHT_180");
+    case TURN_AROUND_LEFT: return String("TURN_AROUND_LEFT");
+    case TURN_AROUND_RIGHT: return String("TURN_AROUND_RIGHT");
+    case ADJUST_ROTATION: return String("ADJUST_ROTATION");
+    case ADJUST_POSITION: return String("ADJUST_POSITION");
+    case UPDATE_SONAR: return String("UPDATE_SONAR");
+    case PAUSE: return String("PAUSE");
+    case PATH_FINISHED: return String("PATH_FINISHED");
+    case GIVE_UP: return String("GIVE_UP");
+  }
+
+  return String("UNKNOWN");
+}
+
+unsigned long pauseTimestamp = 0;
+int pausedLeftSpeed = 0;
+int pausedRightSpeed = 0;
+void pause()
+{
+  pauseMotors();
+  pauseTimestamp = millis();
+}
+void pauseMotors()
+{
+  pausedLeftSpeed = leftSpeed;
+  pausedRightSpeed = rightSpeed;
+  setMotors(0, 0);
+}
+
+void unpause()
+{
+  unsigned long pauseDuration = millis() - pauseTimestamp;
+  unpauseMotors();
+  currentTaskDuration += pauseDuration;
+}
+void unpauseMotors()
+{
+  setMotors(pausedLeftSpeed, pausedRightSpeed);
+  pausedLeftSpeed = pausedRightSpeed = 0;
+}
+
 
 
 ///////////////
@@ -849,8 +1347,8 @@ void findFinish()
 #define FORWARD_RIGHT 2
 #define FORWARD_LEFT  3
 
-
-void idleLights() {
+void idleLights()
+{
   pixels.setPixelColor(BACK_LEFT, pixels.Color(255, 255, 255));
   pixels.setPixelColor(BACK_RIGHT, pixels.Color(255, 255, 255));
   pixels.setPixelColor(FORWARD_RIGHT, pixels.Color(255, 255, 255));
@@ -862,6 +1360,7 @@ void turnRightLights()
 {
   static bool lightOn = false;
   static unsigned long timer = micros();
+
   if ((currentTime - timer) > 500000)
   {
     if (lightOn)
@@ -880,6 +1379,7 @@ void turnRightLights()
         pixels.setPixelColor(FORWARD_LEFT, pixels.Color(255, 255, 255));
         pixels.show();
     }
+
     lightOn = !lightOn;
     timer = currentTime;
   }
@@ -889,6 +1389,7 @@ void turnLeftLights()
 {
   static bool lightOn = false;
   static unsigned long timer = micros();
+
   if ((currentTime - timer) > 500000)
   {
     if (lightOn)
@@ -907,6 +1408,7 @@ void turnLeftLights()
         pixels.setPixelColor(FORWARD_RIGHT, pixels.Color(255, 255, 255));
         pixels.show();
     }
+
     lightOn = !lightOn;
     timer = currentTime;
   }
@@ -925,6 +1427,7 @@ void backwardsLights()
 {
   static bool lightOn = false;
   static unsigned long timer = micros();
+
   if ((currentTime - timer) > 500000)
   {
     if (lightOn)
@@ -943,17 +1446,18 @@ void backwardsLights()
         pixels.setPixelColor(FORWARD_RIGHT, pixels.Color(255, 255, 255));
         pixels.show();
     }
+
     lightOn = !lightOn;
     timer = currentTime;
   }
 }
 
-
 void hazardLights()
 {
-  static bool lightOn = false;  
-  static unsigned long timer = micros();
-  if ((currentTime - timer) > 500000)
+  static bool lightOn = false;
+  static unsigned long timer = millis();
+
+  if ((currentTime - timer) > 500)
   {
     if (lightOn)
     {
@@ -971,6 +1475,7 @@ void hazardLights()
         pixels.setPixelColor(FORWARD_LEFT, pixels.Color(135, 99, 24));
         pixels.show();
     }
+
     lightOn = !lightOn;
     timer = currentTime;
   }
@@ -979,62 +1484,52 @@ void hazardLights()
 void discoLights()
 {
   static unsigned long timer = micros();
+
   if ((currentTime - timer) > 100000)
   {
-    for (int i = 0; i < 4; i++)
+    for (char i = 0; i < 4; i++)
     {
       int randomRed = random(0, 200);
       int randomGreen = random(0, 200);
       int randomBlue = random(0, 200);
-      
-      switch (i) 
+
+      switch (i)
       {
-        case 0: 
-          pixels.setPixelColor(BACK_LEFT, pixels.Color(randomRed, randomGreen, randomBlue)); 
+        case 0:
+          pixels.setPixelColor(BACK_LEFT, pixels.Color(randomRed, randomGreen, randomBlue));
           break;
-        case 1: 
-          pixels.setPixelColor(BACK_RIGHT, pixels.Color(randomRed, randomGreen, randomBlue)); 
+        case 1:
+          pixels.setPixelColor(BACK_RIGHT, pixels.Color(randomRed, randomGreen, randomBlue));
           break;
-        case 2: 
-          pixels.setPixelColor(FORWARD_LEFT, pixels.Color(randomRed, randomGreen, randomBlue)); 
+        case 2:
+          pixels.setPixelColor(FORWARD_LEFT, pixels.Color(randomRed, randomGreen, randomBlue));
           break;
-        case 3: 
-          pixels.setPixelColor(FORWARD_RIGHT, pixels.Color(randomRed, randomGreen, randomBlue)); 
+        case 3:
+          pixels.setPixelColor(FORWARD_RIGHT, pixels.Color(randomRed, randomGreen, randomBlue));
           break;
       }
     }
-    
+
     pixels.show();
     timer = currentTime;
   }
 }
 
-////////////////
-// CONNECTION //
-////////////////
-
-#define SLAVE_ID 1
-
-void waitForStartSignal() 
+void blueLights()
 {
-  // This function will handle waiting for the start signal
-  if (!startSignalRecieved) 
-  {
-    if (Serial.available()) 
-    {
-      String message = Serial.readStringUntil('\n');
-      Serial.print("Received: ");
-      Serial.println(message);
+    pixels.setPixelColor(BACK_LEFT, pixels.Color(0, 0, 255));
+    pixels.setPixelColor(BACK_RIGHT, pixels.Color(0, 0, 255));
+    pixels.setPixelColor(FORWARD_RIGHT, pixels.Color(0, 0, 255));
+    pixels.setPixelColor(FORWARD_LEFT, pixels.Color(0, 0, 255));
+    pixels.show();
+}
 
-      if (message.length() >= 2 && message[0] == SLAVE_ID + '0' && message[1] == '?') 
-      {
-        Serial.print("Responding to Master: Slave ");
-        Serial.print(SLAVE_ID);
-        Serial.println(" Response");
 
-        // Start signal received, now begin the process
-        startSignalRecieved = true;
-      }
-    }
-  }
+void greenLights()
+{
+    pixels.setPixelColor(BACK_LEFT, pixels.Color(0, 255, 0));
+    pixels.setPixelColor(BACK_RIGHT, pixels.Color(0, 255, 0));
+    pixels.setPixelColor(FORWARD_RIGHT, pixels.Color(0, 255, 0));
+    pixels.setPixelColor(FORWARD_LEFT, pixels.Color(0, 255, 0));
+    pixels.show();
 }
