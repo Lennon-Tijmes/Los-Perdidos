@@ -13,7 +13,7 @@
 
 
 
-//#define DEBUG 1
+// #define DEBUG 1
 #define STARTUP_DELAY 2000
 
 
@@ -148,8 +148,8 @@ unsigned int targetRightRotationTicks = MAX_INT;
 // Lights
 bool allBlack = false;
 bool allWhite = false;
-unsigned int colorBlack = 850;
-unsigned int colorWhite = 600;
+unsigned int colorBlack = 801;
+unsigned int colorWhite = 799;
 
 // Other
 #define SLAVE_ID 1
@@ -619,7 +619,7 @@ void phase_startupWait()
 {
   if (startupDelay())
   {
-    programPhase = CALIBRATE;
+    programPhase = DRIVE_TO_SQUARE;
   }
 }
 bool startupDelay()
@@ -637,7 +637,7 @@ void phase_waitForStart()
 {
   if (hasReceivedSignal())
   {
-    programPhase = CALIBRATE;
+    programPhase = CONTINUE_MAZE;
   }
 }
 
@@ -705,11 +705,6 @@ unsigned char pathIndex = 0;
 
 void phase_mapMaze()
 {
-  #ifdef SKIP_MAPPING_MAZE
-    programPhsase = DRIVE_TO_SQUARE;
-    return;
-  #endif
-
   switch (currentTask)
   {
     case CHOOSE_TASK:
@@ -761,8 +756,8 @@ void cutFromMappedPath(unsigned char number)
 
 void resetTaskVariables(unsigned char task, unsigned long duration, unsigned char _nextTask)
 {
-  printDebug(String("Setting task: ") + translateTask(task) + " for " + duration + "ms");
-  printDebug(String("Next task: ") + translateTask(_nextTask));
+//  printDebug(String("Setting task: ") + translateTask(task) + " for " + duration + "ms");
+//  printDebug(String("Next task: ") + translateTask(_nextTask));
   currentTaskStart = currentTime;
   currentTask = task;
   currentTaskDuration = duration;
@@ -770,16 +765,16 @@ void resetTaskVariables(unsigned char task, unsigned long duration, unsigned cha
   prevLeftRotationTicks = leftRotationTicks;
   prevRightRotationTicks = rightRotationTicks;
 }
-void resetTaskVariables(unsigned char task)
-{
-  resetTaskVariables(task, 100, CHOOSE_TASK);
-}
 
 void updateCurrentTask()
 {
   if (currentTime - currentTaskStart > currentTaskDuration)
   {
     startTask(nextTask);
+    if (currentTask == UPDATE_SONAR || currentTask == UPDATE_SONAR_2)
+    {
+      printDebug(String("Sonars timed out: ") + distanceLeft + ", " + distanceFront + ", " + distanceRight);
+    }
     return;
   }
 
@@ -1045,12 +1040,12 @@ void phase_driveToSquare()
   if (allBlack)
   {
     drive(FORWARDS);
-    delay(100);
+    delay(150);
     setGripper(GRIPPER_CLOSED);
     drive(ROTATE_LEFT);
-    delay(480);
+    delay(400);
     drive(FORWARDS);
-    delay(500);
+    delay(100);
     programPhase = FOLLOW_LINE_START;
     timr = currentTime;
   }
@@ -1069,20 +1064,20 @@ void phase_driveToSquare()
 void phase_followLineStart()
 {
   static unsigned char lastDirection = NONE;
-
+  updateLineSensor();
   bool goForwards = (lineSensorValue[2] >= colorBlack) && (lineSensorValue[3] >= colorBlack);
   bool turnLeft   = (lineSensorValue[0] >= colorBlack) || (lineSensorValue[1] >= colorBlack);
   bool turnRight  = (lineSensorValue[4] >= colorBlack) || (lineSensorValue[5] >= colorBlack);
 
   if (allWhite)
   {
-    if (lastDirection == LEFT)
+    if (lastDirection == RIGHT)
     {
-      drive(ADJUST_LEFT);
+      drive(ADJUST_RIGHT);
     }
     else
     {
-      drive(ADJUST_RIGHT);
+      drive(ADJUST_LEFT);
     }
   }
   else
@@ -1102,16 +1097,18 @@ void phase_followLineStart()
       lastDirection = LEFT;
     }
   }
-  setGripper(GRIPPER_CLOSED);
+
   resetSonar();
   updateSonar();
 
-  if (distanceLeft < 30 && distanceFront < 40 && distanceRight < 30)
-  {
-    programPhase = CONTINUE_MAZE;
-  }
+  // if (distanceLeft < 30 && distanceFront < 40 && distanceRight < 30)
+  // {
+  //   programPhase = CONTINUE_MAZE;
+  // }
   if (currentTime - timr > 3000)
   {
+    drive(FORWARDS);
+    delay(500);
     programPhase = CONTINUE_MAZE;
   }
 }
@@ -1164,6 +1161,7 @@ void phase_continueMaze()
     programPhase = FOLLOW_LINE_END;
     return;
   }
+
   switch (currentTask)
   {
     case CHOOSE_TASK:
@@ -1186,7 +1184,7 @@ void phase_continueMaze()
       }
     } break;
   }
-  setGripper(GRIPPER_CLOSED);
+
   updateCurrentTask();
 }
 
@@ -1204,48 +1202,46 @@ void phase_followLineEnd()
   unsigned char lastValue = 0;
   static unsigned long timer = currentTime;
   greenLights();
+  updateLineSensor();
 
-  if ((currentTime - timer) > 1000)
+  if (!allBlack)
   {
-      if (!allBlack)
+    if (!allWhite)
+    {
+      if (forwards == true)
       {
-        if (!allWhite)
-        {
-          if (forwards == true)
-          {
-            drive(FORWARDS);
-          }
-          else if (turnRight == true)
-          {
-            drive(ADJUST_RIGHT);
-            lastValue = 1;
-          }
-          else if (turnLeft == true)
-          {
-            drive(ADJUST_LEFT);
-            lastValue = 2;
-          }
-        }
-        else
-        {
-          if (lastValue == 1)
-          {
-            drive(ADJUST_RIGHT_HARD);
-          }
-          else
-          {
-            drive(ADJUST_LEFT_HARD);
-          }
-        }
+        drive(FORWARDS);
+      }
+      else if (turnRight == true)
+      {
+        drive(ADJUST_RIGHT);
+        lastValue = 1;
+      }
+      else if (turnLeft == true)
+      {
+        drive(ADJUST_LEFT);
+        lastValue = 2;
+      }
+    }
+    else
+    {
+      if (lastValue == 1)
+      {
+        drive(ADJUST_RIGHT_HARD);
       }
       else
       {
-        setGripper(GRIPPER_OPEN);
-        drive(STOP);
-        programPhase = FINISH;
+        drive(ADJUST_LEFT_HARD);
       }
-    timer = currentTime;
+    }
   }
+  else
+  {
+    setGripper(GRIPPER_OPEN);
+    drive(STOP);
+    programPhase = FINISH;
+  }
+timer = currentTime;
 }
 
 
@@ -1268,7 +1264,7 @@ void phase_finish()
 void printDebug(String message)
 {
   #ifdef DEBUG
-    Serial.println(message);
+    Serial.println(String("[") + currentTime + "] " + message);
   #endif
 }
 
@@ -1278,8 +1274,9 @@ void printDebug(const char* prefix, bool printDetails)
     if (printDetails) Serial.println(String(prefix)
         + "motor=(" + leftSpeed + "," + rightSpeed + "), "
         + "sonar=(" + distanceLeft + ", " + distanceFront + ", " + distanceRight + "), "
-        + "rotations=(" + leftRotationTicks + ", " + rightRotationTicks + ")");
-    else Serial.println(prefix);
+        + "rotations=(" + leftRotationTicks + ", " + rightRotationTicks + ")"
+        + "linesensor=(" + lineSensorValue[3] + ", " + lineSensorValue[4] + ")");
+    else Serial.println(prefix);  
   #endif
 }
 
@@ -1301,12 +1298,14 @@ String translateTask(unsigned char task)
     case ADJUST_ROTATION: return String("ADJUST_ROTATION");
     case ADJUST_POSITION: return String("ADJUST_POSITION");
     case UPDATE_SONAR: return String("UPDATE_SONAR");
+    case DRIVE_FORWARDS_2: return String("DRIVE_FORWARDS_2");
+    case UPDATE_SONAR_2: return String("UPDATE_SONAR_2");
     case PAUSE: return String("PAUSE");
     case PATH_FINISHED: return String("PATH_FINISHED");
     case GIVE_UP: return String("GIVE_UP");
   }
 
-  return String("UNKNOWN");
+  return String("UNKNOWN_") + task;
 }
 
 unsigned long pauseTimestamp = 0;
