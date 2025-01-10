@@ -1,171 +1,150 @@
-#include "Arduino.h"
+#include <Arduino.h>
 
-// Motor speed definitions
-#define motorLFFullSpeed 255
-#define motorRFFullSpeed 255
-#define motorLBFullSpeed 255
-#define motorRBFullSpeed 255
-#define motorLHalfSpeed 150
-#define motorRHalfSpeed 150
-#define motorStop 0
+// Motor Pins
+#define MOTOR_LEFT_FWD 10
+#define MOTOR_LEFT_BWD 11
+#define MOTOR_RIGHT_FWD 9
+#define MOTOR_RIGHT_BWD 3
 
+// Sensor Pins
+const unsigned char TRACK_SENSORS[] = {A7, A6, A5, A4, A3, A2, A1, A0};  // 8 sensors
+int sensorReadings[8] = {0, 0, 0, 0, 0, 0, 0, 0};
 
-// Motor PWM speed pins (must be PWM-capable pins)
-#define motorLB 11 // motor left backwards
-#define motorRF 9  // motor right forwards
-#define motorLF 10 // motor left forwards
-#define motorRB 3   // motor right backwards
-#define TRIG_PIN 12   
-#define ECHO_PIN 13
+// Thresholds for black and white detection
+unsigned int thresholdBlack = 800;  // Adjust this for your robot's sensors
+unsigned int thresholdWhite = 600;  // Adjust this for your robot's sensors
 
-//Gripper movement
-#define GRIPPER_OPEN   1600  
-#define GRIPPER_CLOSED 1010
-#define GRIPPER_PIN 8
+// Speed Control
+#define SPEED_LEFT_FULL 255
+#define SPEED_RIGHT_FULL 255
+#define SPEED_LEFT_HALF 130
+#define SPEED_RIGHT_HALF 130
+#define SPEED_STOP 0
 
-*/
-unsigned long previousMillis = 0;
-const int TURN_DURATION = 700;
-const int FORWARD_DURATION = 1000;
-const int PAUSE_DURATION = 600;
-long distance = -1;
-unsigned int colorBlack = 500;
-unsigned int colorWhite = 900;
-bool allBlack = false;
-bool allWhite = false;
+// Robot states
+enum RobotState { HALT, MOVE_AHEAD, SEARCH_RIGHT, SEARCH_LEFT };
+RobotState currentRobotState = HALT;
 
-const unsigned char LINE_SENSOR[] = {A7, A6, A5, A4, A3, A2, A1, A0};
-int lineSensorValue[8] = {0, 0, 0, 0, 0, 0, 0, 0};
-/*
+void initializeHardware() {
+  pinMode(MOTOR_LEFT_FWD, OUTPUT);
+  pinMode(MOTOR_LEFT_BWD, OUTPUT);
+  pinMode(MOTOR_RIGHT_FWD, OUTPUT);
+  pinMode(MOTOR_RIGHT_BWD, OUTPUT);
 
-void setup() 
-{
-  // Set motor direction pins as outputs
-  pinMode(motorLF, OUTPUT);
-  pinMode(motorRF, OUTPUT);
-  pinMode(motorLB, OUTPUT);
-  pinMode(motorRB, OUTPUT);
-  pinMode(TRIG_PIN, OUTPUT);
-  pinMode(ECHO_PIN, INPUT);
+  Serial.begin(9600);
 
-  Serial.begin(9600); // For debugging
-
-
+  for (char i = 0; i < 8; i++) {
+    pinMode(TRACK_SENSORS[i], INPUT);
+  }
 }
 
-void loop() 
+void readTrackSensors();
+void moveStraight();
+void haltMotors();
+void turnRobotRight();
+void turnRobotLeft();
+void handleLineTracking();
+void handleStateTransition();
 
-{
-   // Measure distance
-  long duration, distance;
-  digitalWrite(TRIG_PIN, LOW);
-  delayMicroseconds(2);             // Ensure trigger is off
-  digitalWrite(TRIG_PIN, HIGH);
-  delayMicroseconds(10);            // Send a 10µs pulse
-  digitalWrite(TRIG_PIN, LOW);
-  duration = pulseIn(ECHO_PIN, HIGH);
+void setup() {
+  initializeHardware();
+}
 
-  // Calculate distance in cm
-  distance = duration * 0.034 / 2;
+void loop() {
+  readTrackSensors();
+  handleLineTracking();
+  handleStateTransition();
+}
 
-  // Debugging output
-  Serial.print("Distance: ");
-  Serial.print(distance);
-  Serial.println(" cm");
-
-  // Check distance
-  if (distance > 0 && distance <= 20) {
-    stopMotors();   // Stop motors if object is close
-    delay(200);
-    turnRigth();
-    delay(1000);
-    moveForwards();
-    delay(200);
-    turnLeft();
-    delay(5000);
-    stopMotors();
-    delay(200);
-    turnRigth();
-    delay(1000);
-
-
-  } else {
-    moveForwards(); // Keep moving forwards otherwise
-/*
-      if it sees black
-      {
-        moveForwards();
-      }
-      else if sees white line on the left
-      {
-        rotRigth();
-        delay(500);
-      }
-      else if 
-      {
-        rotLeft();
-        delay(500);
-      }
-*/
+void readTrackSensors() {
+  for (unsigned char i = 0; i < 8; i++) {
+    sensorReadings[i] = analogRead(TRACK_SENSORS[i]);
   }
 
-  delay(100); // Small delay to stabilize readings
-}
- 
-
-
-void moveForwards() 
-{
-  analogWrite(motorLF, motorLFFullSpeed);
-  analogWrite(motorRF, motorRFFullSpeed);
-  analogWrite(motorLB, motorStop);
-  analogWrite(motorRB, motorStop);
+  // Debugging output to check sensor values
+  Serial.print("Sensor Values: ");
+  for (unsigned char i = 0; i < 8; i++) {
+    Serial.print(sensorReadings[i]);
+    Serial.print(" ");
+  }
+  Serial.println();
 }
 
-void moveBackwards() 
-{
-  analogWrite(motorLB, motorLBFullSpeed);
-  analogWrite(motorRB, motorRBFullSpeed);
-  analogWrite(motorLF, motorStop);
-  analogWrite(motorRF, motorStop);
+void moveStraight() {
+  analogWrite(MOTOR_LEFT_FWD, SPEED_LEFT_FULL);
+  analogWrite(MOTOR_LEFT_BWD, SPEED_STOP);
+  analogWrite(MOTOR_RIGHT_FWD, SPEED_RIGHT_FULL);
+  analogWrite(MOTOR_RIGHT_BWD, SPEED_STOP);
 }
 
-void stopMotors() 
-{
-  analogWrite(motorRB, motorStop);
-  analogWrite(motorLB, motorStop);
-  analogWrite(motorLF, motorStop);
-  analogWrite(motorRF, motorStop);
+void haltMotors() {
+  analogWrite(MOTOR_LEFT_FWD, SPEED_STOP);
+  analogWrite(MOTOR_LEFT_BWD, SPEED_STOP);
+  analogWrite(MOTOR_RIGHT_FWD, SPEED_STOP);
+  analogWrite(MOTOR_RIGHT_BWD, SPEED_STOP);
 }
 
-void rotRigth()
-{
-  analogWrite(motorRB, motorLBFullSpeed);
-  analogWrite(motorLB, motorStop);
-  analogWrite(motorLF, motorLBFullSpeed);
-  analogWrite(motorRF, motorStop);
+void turnRobotRight() {
+  analogWrite(MOTOR_LEFT_FWD, SPEED_LEFT_HALF);
+  analogWrite(MOTOR_LEFT_BWD, SPEED_STOP);
+  analogWrite(MOTOR_RIGHT_FWD, SPEED_STOP);
+  analogWrite(MOTOR_RIGHT_BWD, SPEED_RIGHT_HALF);
 }
 
-void rotLeft()
-{
-  analogWrite(motorRF, motorLBFullSpeed);
-  analogWrite(motorLF, motorStop);
-  analogWrite(motorLB, motorLBFullSpeed);
-  analogWrite(motorRB, motorStop);
+void turnRobotLeft() {
+  analogWrite(MOTOR_RIGHT_FWD, SPEED_RIGHT_HALF);
+  analogWrite(MOTOR_RIGHT_BWD, SPEED_STOP);
+  analogWrite(MOTOR_LEFT_FWD, SPEED_STOP);
+  analogWrite(MOTOR_LEFT_BWD, SPEED_LEFT_HALF);
 }
 
-void turnRigth()
-{
-  analogWrite(motorRB, motorStop);
-  analogWrite(motorLB, motorStop);
-  analogWrite(motorLF, motorLFFullSpeed);
-  analogWrite(motorRF, motorRHalfSpeed);
+void handleLineTracking() {
+  bool anyBlackDetected = false;
+
+  // Check all sensors to see if any sensor detects black
+  for (char i = 0; i < 8; i++) {
+    if (sensorReadings[i] >= thresholdBlack) {
+      anyBlackDetected = true;
+      break;  // If one sensor detects black, stop checking the rest
+    }
+  }
+
+  if (anyBlackDetected) {
+    moveStraight();  // Move straight if any sensor detects black
+    currentRobotState = MOVE_AHEAD;
+  } else {
+    currentRobotState = SEARCH_RIGHT;  // If no black detected, search for the line
+    
+    if (anyBlackDetected) {
+      moveStraight();  // Move straight if any sensor detects black
+      currentRobotState = MOVE_AHEAD;
+      
+      }else {
+      currentRobotState = SEARCH_LEFT;
+      
+      }
+  }
 }
 
-void turnLeft()
-{
-  analogWrite(motorRF, motorRFFullSpeed);
-  analogWrite(motorLF, motorLHalfSpeed);
-  analogWrite(motorLB, motorStop);
-  analogWrite(motorRB, motorStop);
+
+void handleStateTransition() {
+  switch (currentRobotState) {
+    case SEARCH_RIGHT:
+      turnRobotRight();  // Rotate right to search for the line
+      delay(200);  // Rotate right for a short time
+      break;
+
+    case SEARCH_LEFT:
+      turnRobotLeft();  // Rotate left to search for the line
+      delay(200);  // Rotate left for a short time
+      break;
+
+    case MOVE_AHEAD:
+      // Do nothing since we're already moving straight
+      break;
+
+
+  }
 }
+
+
