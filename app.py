@@ -8,18 +8,19 @@ print(f"Flask Server IP: {ip_address}")
 app = Flask(__name__)
 
 # Function to insert the sensor data into the database
-def insert_robot_data(robot_id, speed, object_left, object_right, object_middle=None):
+def insert_robot_data(robot_id, speed, object_left, object_right, object_middle=None, line="Unknown"):
     conn = sqlite3.connect('robots.db')
     cursor = conn.cursor()
 
     if robot_id == 1: # King Julien
-        cursor.execute("INSERT INTO king_julien (robot_id, speed, object_distance, line) VALUES (?, ?, ?, ?)",(robot_id, speed, object_left, object_right))
+        cursor.execute("INSERT INTO king_julien (robot_id, speed, object_distance, line) VALUES (?, ?, ?, ?)",
+                        (robot_id, speed, object_middle, line))
     elif robot_id == 2:  # Moto-Moto
         cursor.execute("INSERT INTO moto_moto (robot_id, speed, object_distance, line) VALUES (?, ?, ?, ?)", 
-                       (robot_id, speed, object_left, object_right))
+                        (robot_id, speed, object_middle, line))
     elif robot_id == 3:  # Mort
         cursor.execute("INSERT INTO mort (robot_id, speed, object_left, object_right, object_middle, line) VALUES (?, ?, ?, ?, ?, ?)",
-                       (robot_id, speed, object_left, object_right, object_middle, 'line_solution_here'))     
+                        (robot_id, speed, object_left, object_right, object_middle, line))     
 
     conn.commit()
     conn.close()
@@ -27,18 +28,49 @@ def insert_robot_data(robot_id, speed, object_left, object_right, object_middle=
 # Route to handle incoming data from Master
 @app.route('/update_robot_data', methods=['GET'])
 def update_robot_data():
-    data = request.args.get('data').split(',')
+    # Extract parameters from the GET request
+    robot_id = request.args.get('robot_id')
+    speed = request.args.get('speed')
+    object_left = request.args.get('object_left')
+    object_right = request.args.get('object_right')
+    object_middle = request.args.get('object_middle', None)  # Optional parameter
+    line = request.args.get('line', "Unknown")  # Default line state if not provided
 
-    robot_id = int(data[0])
-    speed = float(data[1])
-    object_left = float(data[2])
-    object_right = float(data[3])
-    object_middle = float(data[4]) if len(data) > 4 else None
-
-    # Insert the data into the database
-    insert_robot_data(robot_id, speed, object_left, object_right, object_middle)
+    # Validate the parameters
+    if not all([robot_id, speed, object_left, object_right, line]):
+        return "<p style='color: red;'>Missing required parameters. Please include 'robot_id', 'speed', 'object_left', 'object_right', and 'line' in the URL.</p>", 400
     
-    return jsonify({"status": "success", "message": "Data inserted successfully"}), 200
+    # Validate 'line' to ensure it's either "On Line" or "Not On Line"
+    if line not in ["On Line", "Not On Line"]:
+        return "<p style='color: red;'>Invalid 'line' state. It must be either 'On Line' or 'Not On Line'.</p>", 400
+
+    try:
+        # Convert parameters to their appropriate types
+        robot_id = int(robot_id)
+        speed = float(speed)
+        object_left = float(object_left)
+        object_right = float(object_right)
+        object_middle = float(object_middle) if object_middle else None
+        
+        # Save data to the database (assuming insert_robot_data function exists)
+        insert_robot_data(robot_id, speed, object_left, object_right, object_middle, line)
+        print("test")
+        
+        # Return a success message
+        return f"""
+        <h1>Robot Data Updated</h1>
+        <p>Robot ID: {robot_id}</p>
+        <p>Speed: {speed}</p>
+        <p>Object Distance (Left): {object_left}</p>
+        <p>Object Distance (Right): {object_right}</p>
+        {"<p>Object Distance (Middle): " + str(object_middle) + "</p>" if object_middle else ""}
+        <p>Line Status: {line}</p>
+        <p>Data successfully recorded in the database.</p>
+        <p><a href='/'>Go back to the main page</a></p>
+        """, 200
+
+    except ValueError:
+        return "<p style='color: red;'>Invalid data types. Ensure 'robot_id' is an integer and other values are numbers.</p>", 400
 
 # Route for the homepage
 @app.route('/')

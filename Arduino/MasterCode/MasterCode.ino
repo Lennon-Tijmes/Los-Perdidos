@@ -3,7 +3,7 @@
 
 const char* ssid = "iotroam";        // Replace with your Wi-Fi SSID
 const char* password = "JVzVtRgyWn"; // Replace with your Wi-Fi Password
-const char* flaskServerIP = "141.252.143.84"; // Replace with Flask server IP
+const char* flaskServerURL = "los-perdidos.onrender.com"; // Replace with your Render app URL
 const int flaskServerPort = 5000;         // Flask server port (default 5000)
 
 WiFiClient wifiClient;
@@ -51,8 +51,31 @@ void loop() {
     if (!response.isEmpty()) {
       Serial.println("Received from Slave: " + response);
 
+      // Assuming response is in a comma-separated format like:
+      // "speed, object_left, object_right, object_middle, line_status"
+      String data[5];
+      int index = 0;
+      int lastIndex = 0;
+
+      // Parse the response into separate variables
+      for (int i = 0; i < response.length(); i++) {
+        if (response[i] == ',') {
+          data[index] = response.substring(lastIndex, i);
+          lastIndex = i + 1;
+          index++;
+        }
+      }
+      data[index] = response.substring(lastIndex); // The last part (line status)
+      
+      // Extract individual data values
+      float speed = data[0].toFloat();
+      float object_left = data[1].toFloat();
+      float object_right = data[2].toFloat();
+      float object_middle = (data[3].length() > 0) ? data[3].toFloat() : 0;
+      String line_status = data[4];  // "On Line" or "Not On Line"
+
       // Send the data to Flask server
-      sendDataToFlask(response, slaveIDs[currentSlave]);
+      sendDataToFlask(speed, object_left, object_right, object_middle, line_status, slaveIDs[currentSlave]);
     } else {
       Serial.println("No response from Slave " + String(slaveIDs[currentSlave]));
     }
@@ -78,16 +101,21 @@ String readSlaveResponse() {
   return ""; // Return empty string if no response
 }
 
-void sendDataToFlask(const String& data, char slaveID) {
-  if (wifiClient.connect(flaskServerIP, flaskServerPort)) {
-    String jsonData = "{\"slave_id\": \"" + String(slaveID) + "\", \"data\": \"" + data + "\"}";
-    wifiClient.println("POST /update HTTP/1.1");
-    wifiClient.println("Host: " + String(flaskServerIP));
-    wifiClient.println("Content-Type: application/json");
-    wifiClient.print("Content-Length: ");
-    wifiClient.println(jsonData.length());
+void sendDataToFlask(float speed, float object_left, float object_right, float object_middle, String line_status, char slaveID) {
+  Serial.println("Attempting to connect to Flask server...");
+
+  if (wifiClient.connect("los-perdidos.onrender.com", 5000)) {
+    // Format the data as a single query parameter
+    String data = String(slaveID) + "," + String(speed) + "," + String(object_left) + "," + String(object_right) + "," + String(object_middle) + "," + line_status;
+    
+    // Construct the GET request URL with the single "data" parameter
+    String url = "/update_robot_data?data=" + data;
+    Serial.println(url);
+
+    wifiClient.println("GET " + url + " HTTP/1.1");
+    wifiClient.println("Host: los-perdidos.onrender.com");
+    wifiClient.println("Connection: close");
     wifiClient.println();
-    wifiClient.println(jsonData);
 
     // Wait for a response from the server
     unsigned long timeout = millis();
@@ -100,7 +128,9 @@ void sendDataToFlask(const String& data, char slaveID) {
     }
 
     wifiClient.stop(); // Close the connection
+    Serial.println("Connection closed.");
   } else {
     Serial.println("Failed to connect to Flask server");
   }
 }
+
