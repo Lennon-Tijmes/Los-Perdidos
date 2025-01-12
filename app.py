@@ -28,35 +28,26 @@ def insert_robot_data(robot_id, speed, object_left, object_right, object_middle=
 # Route to handle incoming data from Master
 @app.route('/update_robot_data', methods=['GET'])
 def update_robot_data():
-    # Extract parameters from the GET request
-    robot_id = request.args.get('robot_id')
-    speed = request.args.get('speed')
-    object_left = request.args.get('object_left')
-    object_right = request.args.get('object_right')
-    object_middle = request.args.get('object_middle', None)  # Optional parameter
-    line = request.args.get('line', "Unknown")  # Default line state if not provided
-
-    # Validate the parameters
-    if not all([robot_id, speed, object_left, object_right, line]):
-        return "<p style='color: red;'>Missing required parameters. Please include 'robot_id', 'speed', 'object_left', 'object_right', and 'line' in the URL.</p>", 400
-    
-    # Validate 'line' to ensure it's either "On Line" or "Not On Line"
-    if line not in ["On Line", "Not On Line"]:
-        return "<p style='color: red;'>Invalid 'line' state. It must be either 'On Line' or 'Not On Line'.</p>", 400
-
+    # Extract and validate GET parameters
     try:
-        # Convert parameters to their appropriate types
-        robot_id = int(robot_id)
-        speed = float(speed)
-        object_left = float(object_left)
-        object_right = float(object_right)
+        robot_id = int(request.args.get('robot_id'))
+        speed = float(request.args.get('speed'))
+        object_left = float(request.args.get('object_left'))
+        object_right = float(request.args.get('object_right'))
+        object_middle = request.args.get('object_middle')
+        line = request.args.get('line', "Unknown")
+
+        # Convert optional object_middle if provided
         object_middle = float(object_middle) if object_middle else None
-        
-        # Save data to the database (assuming insert_robot_data function exists)
+
+        # Validate 'line' status
+        if line not in ["On Line", "Not On Line"]:
+            raise ValueError("Invalid 'line' status")
+
+        # Insert data into the database
         insert_robot_data(robot_id, speed, object_left, object_right, object_middle, line)
-        print("test")
-        
-        # Return a success message
+
+        # Success response
         return f"""
         <h1>Robot Data Updated</h1>
         <p>Robot ID: {robot_id}</p>
@@ -69,8 +60,31 @@ def update_robot_data():
         <p><a href='/'>Go back to the main page</a></p>
         """, 200
 
-    except ValueError:
-        return "<p style='color: red;'>Invalid data types. Ensure 'robot_id' is an integer and other values are numbers.</p>", 400
+    except (ValueError, TypeError):
+        return "<p style='color: red;'>Invalid or missing parameters. Ensure all required fields are correctly formatted.</p>", 400
+
+# Gets the latest data for Mort from the database and returns it as JSON
+@app.route('/api/mort_data', methods=['GET'])
+def get_mort_data():
+    try:
+        # Establish a connection to the SQLite database
+        conn = sqlite3.connect('robots.db')
+        cursor = conn.cursor()
+
+        # Fetch the speed for Mort (robot_id = 3) from the latest entry
+        cursor.execute("SELECT speed FROM mort WHERE robot_id = 3 ORDER BY id DESC LIMIT 1")
+        result = cursor.fetchone()
+
+        # Close the connection after the query
+        conn.close()
+
+        if result:
+            return jsonify({'speed': result[0]}), 200
+        return jsonify({'speed': 0}), 200  # Default to 0 if no data found
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
 
 # Route for the homepage
 @app.route('/')
@@ -96,28 +110,27 @@ def ourteam():
 # Route for the dashboard
 @app.route('/dashboard')
 def dashboard():
-    # Connect to the database
     conn = sqlite3.connect('robots.db')
     cursor = conn.cursor()
 
-    # Query for data from each robot
-    cursor.execute("SELECT * FROM mort")
+    # Query data for each robot without including the 'robot_id' and 'id' columns in the result
+    cursor.execute("SELECT speed, object_left, object_right, object_middle, line FROM mort ORDER BY id DESC LIMIT 10")
     mort_data = cursor.fetchall()
 
-    cursor.execute("SELECT * FROM king_julien")
+    cursor.execute("SELECT speed, object_distance, line FROM king_julien ORDER BY id DESC LIMIT 10")
     king_julien_data = cursor.fetchall()
 
-    cursor.execute("SELECT * FROM moto_moto")
+    cursor.execute("SELECT speed, object_distance, line FROM moto_moto ORDER BY id DESC LIMIT 10")
     moto_moto_data = cursor.fetchall()
 
     conn.close()
 
     # Pass data to the dashboard template
     return render_template(
-        'dashboard.html', 
+        'dashboard.html',
+        mort_data=mort_data,
         king_julien_data=king_julien_data,
-        moto_moto_data=moto_moto_data,
-        mort_data=mort_data
+        moto_moto_data=moto_moto_data
     )
 
 if __name__ == '__main__':

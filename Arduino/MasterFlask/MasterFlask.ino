@@ -38,7 +38,7 @@ void loop() {
       Serial.println("Connected to server!");
 
       // Send HTTPS GET request
-      String getRequest = "GET /update_robot_data?data=3,0.9,2.1,1.7,1.4,On%20Line HTTP/1.1\r\n";
+      String getRequest = "GET /update_robot_data?data=3,255,2.1,1.7,1.4,On%20Line HTTP/1.1\r\n";
       getRequest += "Host: " + String(serverName) + "\r\n";
       getRequest += "Connection: close\r\n\r\n";
 
