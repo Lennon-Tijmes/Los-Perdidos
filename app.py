@@ -71,16 +71,29 @@ def get_mort_data():
         conn = sqlite3.connect('robots.db')
         cursor = conn.cursor()
 
-        # Fetch the speed for Mort (robot_id = 3) from the latest entry
-        cursor.execute("SELECT speed FROM mort WHERE robot_id = 3 ORDER BY id DESC LIMIT 1")
+        # Fetch the latest data for Mort (robot_id = 3)
+        cursor.execute("""
+            SELECT speed, object_left, object_right, object_middle
+            FROM mort
+            WHERE robot_id = 3
+            ORDER BY id DESC
+            LIMIT 1
+        """)
         result = cursor.fetchone()
 
         # Close the connection after the query
         conn.close()
 
         if result:
-            return jsonify({'speed': result[0]}), 200
-        return jsonify({'speed': 0}), 200  # Default to 0 if no data found
+            return jsonify({
+                'speed': result[0],
+                'object_left': result[1],
+                'object_right': result[2],
+                'object_middle': result[3]
+            }), 200
+
+        # Default response if no data is found
+        return jsonify({'speed': 0, 'object_left': 0, 'object_right': 0, 'object_middle': 0}), 200
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500

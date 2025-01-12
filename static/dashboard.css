@@ -69,3 +69,42 @@ footer p {
     font-weight: bold;
     color: #000;
 }
+
+#objectProximity {
+    position: relative;
+    width: 400px; /* Define visualization space */
+    height: 400px;
+    border: 2px solid black;
+    margin: 20px auto;
+}
+
+#mort {
+    position: absolute;
+    width: 10px;
+    height: 10px;
+    background-color: orange;
+    border-radius: 50%; /* Keeps Mort circular */
+    top: 50%; /* Center vertically */
+    left: 50%; /* Center horizontally */
+    transform: translate(-50%, -50%);
+}
+
+#objectLeft, #objectMiddle, #objectRight {
+    position: absolute;
+    background-color: lightblue; /* Wall color */
+    height: 20px; /* Wall thickness */
+    width: 30px; /* Increased wall width */
+    transform: translate(-50%, -50%);
+}
+
+#objectLeft {
+    background-color: lightblue;
+}
+
+#objectMiddle {
+    background-color: yellow;
+}
+
+#objectRight {
+    background-color: red;
+}

@@ -32,6 +32,12 @@
     </div>
     <button onclick="updateMortVisualization()">Update Speed</button>
     
+    <div id="objectProximity">
+        <div id="mort"></div> <!-- Mort -->
+        <div id="objectLeft"></div> <!-- Left wall -->
+        <div id="objectMiddle"></div> <!-- Middle wall -->
+        <div id="objectRight"></div> <!-- Right wall -->
+    </div>       
 
     <!-- Robot Data Tables -->
     <div class="tables">
@@ -40,8 +46,8 @@
             <thead>
                 <tr>
                     <th>Speed</th>
-                    <th>Object Right</th>
                     <th>Object Left</th>
+                    <th>Object Right</th>
                     <th>Object Middle</th>
                     <th>Line</th>
                 </tr>
@@ -141,6 +147,52 @@ async function updateMortVisualization() {
         console.error("Error fetching data from API:", error);
     }
 }
+
+async function updateObjectDistances() {
+    try {
+        const response = await fetch('/api/mort_data');
+        const data = await response.json();
+
+        if (
+            data.object_left !== undefined &&
+            data.object_right !== undefined &&
+            data.object_middle !== undefined
+        ) {
+            const maxDistance = 60; // Maximum distance in cm
+            const boxSize = 200; // Visualization box dimension in pixels
+            const scaleFactor = boxSize / 2 / maxDistance; // Proportional scaling within the box
+
+            // Map distances to positions
+            const leftDistance = data.object_left * scaleFactor;
+            const rightDistance = data.object_right * scaleFactor;
+            const middleDistance = data.object_middle * scaleFactor;
+
+            // Update positions dynamically
+            const leftWall = document.getElementById('objectLeft');
+            const rightWall = document.getElementById('objectRight');
+            const middleWall = document.getElementById('objectMiddle');
+
+            // Adjust positions for left object (moves left)
+            leftWall.style.top = `50%`; // Stays vertically aligned with Mort
+            leftWall.style.left = `${50 - Math.min(leftDistance, boxSize / 2)}%`; // Moves left, capped at box boundary
+
+            // Adjust positions for right object (moves right)
+            rightWall.style.top = `50%`; // Stays vertically aligned with Mort
+            rightWall.style.left = `${50 + Math.min(rightDistance, boxSize / 2)}%`; // Moves right, capped at box boundary
+
+            // Adjust positions for middle object (moves up)
+            middleWall.style.top = `${50 - Math.min(middleDistance, boxSize / 2)}%`; // Moves up, capped at box boundary
+            middleWall.style.left = `50%`; // Stays horizontally centered
+        } else {
+            console.error("Incomplete object distance data received.");
+        }
+    } catch (error) {
+        console.error("Error fetching or processing data:", error);
+    }
+}
+
+// Call the function regularly to update visualization
+setInterval(updateObjectDistances, 1000);
 
     // Call the function to load the initial value
     updateMortVisualization();
