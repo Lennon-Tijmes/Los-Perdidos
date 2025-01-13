@@ -30,7 +30,6 @@
             <div class="center" id="speedValue">0</div>
         </div>
     </div>
-    <button onclick="updateMortVisualization()">Update Speed</button>
     
     <div id="objectProximity">
         <div id="mort"></div> <!-- Mort -->
@@ -109,97 +108,97 @@
     <!-- Footer -->
     <footer>
         <p>© <span id="current-year"></span></p>
-        <script>
-            document.getElementById('current-year').textContent = new Date().getFullYear();
-        
-            // Function to update Mort's speed visualization
-async function updateMortVisualization() {
-    try {
-        const response = await fetch('/api/mort_data');
-        const data = await response.json();
-
-        console.log("Fetched data:", data); // Debugging line
-
-        if (data.speed !== undefined) {
-            const speed = data.speed; // Use the 'speed' property from the response
-            const maxSpeed = 255; // Max speed value is 255
-
-            // Calculate rotation degree based on speed (0 to 255)
-            const rotationDegree = (speed / maxSpeed) * 180; 
-
-            // Set the speed fill to rotate accordingly
-            const speedFill = document.getElementById('speedFill');
-            speedFill.style.transform = `rotate(${rotationDegree}deg)`; 
-
-            // Set the color (green for high speed, red for low speed)
-            const red = Math.min(255, Math.floor((speed / maxSpeed) * 255));
-            const green = Math.min(255, Math.floor((1 - speed / maxSpeed) * 255));
-            const color = `rgb(${red}, ${green}, 0)`; // RGB color based on speed
-            speedFill.style.backgroundColor = color;
-
-            // Set the speed value at the center of the meter
-            const speedValue = document.getElementById('speedValue');
-            speedValue.textContent = speed.toFixed(0); // Show speed rounded to nearest integer
-        } else {
-            console.error("Speed data not found in API response.");
-        }
-    } catch (error) {
-        console.error("Error fetching data from API:", error);
-    }
-}
-
-async function updateObjectDistances() {
-    try {
-        const response = await fetch('/api/mort_data');
-        const data = await response.json();
-
-        if (
-            data.object_left !== undefined &&
-            data.object_right !== undefined &&
-            data.object_middle !== undefined
-        ) {
-            const maxDistance = 60; // Maximum distance in cm
-            const boxSize = 200; // Visualization box dimension in pixels
-            const scaleFactor = boxSize / 2 / maxDistance; // Proportional scaling within the box
-
-            // Map distances to positions
-            const leftDistance = data.object_left * scaleFactor;
-            const rightDistance = data.object_right * scaleFactor;
-            const middleDistance = data.object_middle * scaleFactor;
-
-            // Update positions dynamically
-            const leftWall = document.getElementById('objectLeft');
-            const rightWall = document.getElementById('objectRight');
-            const middleWall = document.getElementById('objectMiddle');
-
-            // Adjust positions for left object (moves left)
-            leftWall.style.top = `50%`; // Stays vertically aligned with Mort
-            leftWall.style.left = `${50 - Math.min(leftDistance, boxSize / 2)}%`; // Moves left, capped at box boundary
-
-            // Adjust positions for right object (moves right)
-            rightWall.style.top = `50%`; // Stays vertically aligned with Mort
-            rightWall.style.left = `${50 + Math.min(rightDistance, boxSize / 2)}%`; // Moves right, capped at box boundary
-
-            // Adjust positions for middle object (moves up)
-            middleWall.style.top = `${50 - Math.min(middleDistance, boxSize / 2)}%`; // Moves up, capped at box boundary
-            middleWall.style.left = `50%`; // Stays horizontally centered
-        } else {
-            console.error("Incomplete object distance data received.");
-        }
-    } catch (error) {
-        console.error("Error fetching or processing data:", error);
-    }
-}
-
-// Call the function regularly to update visualization
-setInterval(updateObjectDistances, 1000);
-
-    // Call the function to load the initial value
-    updateMortVisualization();
-    // Refresh data every 5 seconds (optional)
-    setInterval(updateMortVisualization, 5000);
-</script>                
     </footer>
+    <script>
+        document.getElementById('current-year').textContent = new Date().getFullYear();
 
+        // Function to update Mort's speed visualization
+        async function updateMortVisualization() {
+            try {
+                const response = await fetch('/api/mort_data');
+                const data = await response.json();
+
+                console.log("Fetched data:", data); // Debugging line
+
+                if (data.speed !== undefined) {
+                    const speed = data.speed; // Use the 'speed' property from the response
+                    const maxSpeed = 255; // Max speed value is 255
+
+                    // Calculate rotation degree based on speed (0 to 255)
+                    const rotationDegree = (speed / maxSpeed) * 180;
+
+                    // Set the speed fill to rotate accordingly
+                    const speedFill = document.getElementById('speedFill');
+                    speedFill.style.transform = `rotate(${rotationDegree}deg)`;
+
+                    // Set the color (green for high speed, red for low speed)
+                    const red = Math.min(255, Math.floor((speed / maxSpeed) * 255));
+                    const green = Math.min(255, Math.floor((1 - speed / maxSpeed) * 255));
+                    const color = `rgb(${red}, ${green}, 0)`; // RGB color based on speed
+                    speedFill.style.backgroundColor = color;
+
+                    // Set the speed value at the center of the meter
+                    const speedValue = document.getElementById('speedValue');
+                    speedValue.textContent = speed.toFixed(0); // Show speed rounded to nearest integer
+                } else {
+                    console.error("Speed data not found in API response.");
+                }
+            } catch (error) {
+                console.error("Error fetching data from API:", error);
+            }
+        }
+
+        async function updateObjectDistances() {
+            try {
+                const response = await fetch('/api/mort_data');
+                const data = await response.json();
+
+                if (
+                    data.object_left !== undefined &&
+                    data.object_right !== undefined &&
+                    data.object_middle !== undefined
+                ) {
+                    const maxDistance = 60; // Maximum distance in cm
+                    const boxSize = 200; // Visualization box dimension in pixels
+                    const scaleFactor = boxSize / 2 / maxDistance; // Proportional scaling within the box
+
+                    // Map distances to positions
+                    const leftDistance = data.object_left * scaleFactor;
+                    const rightDistance = data.object_right * scaleFactor;
+                    const middleDistance = data.object_middle * scaleFactor;
+
+                    // Update positions dynamically
+                    const leftWall = document.getElementById('objectLeft');
+                    const rightWall = document.getElementById('objectRight');
+                    const middleWall = document.getElementById('objectMiddle');
+
+                    // Adjust positions for left object (moves left)
+                    leftWall.style.top = `50%`; // Stays vertically aligned with Mort
+                    leftWall.style.left = `${50 - Math.min(leftDistance, boxSize / 2)}%`; // Moves left, capped at box boundary
+
+                    // Adjust positions for right object (moves right)
+                    rightWall.style.top = `50%`; // Stays vertically aligned with Mort
+                    rightWall.style.left = `${50 + Math.min(rightDistance, boxSize / 2)}%`; // Moves right, capped at box boundary
+
+                    // Adjust positions for middle object (moves up)
+                    middleWall.style.top = `${50 - Math.min(middleDistance, boxSize / 2)}%`; // Moves up, capped at box boundary
+                    middleWall.style.left = `50%`; // Stays horizontally centered
+                } else {
+                    console.error("Incomplete object distance data received.");
+                }
+            } catch (error) {
+                console.error("Error fetching or processing data:", error);
+            }
+        }
+
+        // Call the function regularly to update visualization
+        setInterval(updateObjectDistances, 1000);
+
+        // Call the function to load the initial value
+        updateMortVisualization();
+
+        // Refresh data every 1 second (optional)
+        setInterval(updateMortVisualization, 1000);
+    </script>
 </body>
 </html>
