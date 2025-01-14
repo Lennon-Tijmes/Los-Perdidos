@@ -51,19 +51,7 @@ void loop() {
   bool leftSensorsDetectLine = sensorReadings[0] < thresholdBlack && sensorReadings[1] < thresholdBlack;
   bool rightSensorsDetectLine = sensorReadings[6] < thresholdBlack && sensorReadings[7] < thresholdBlack;
 
-  bool allSensorsSeeWhite = true;
-  for (int i = 0; i < 8; i++) {
-    if (sensorReadings[i] < thresholdBlack) {
-      allSensorsSeeWhite = false;
-      break;
-    }
-  }
-
-  if (allSensorsSeeWhite) {
-    stopMotors();
-    while (true);  // Fully stop when all sensors detect white
-  }
-
+  // Ensure continuous operation without full stop
   if (midSensorsDetectLine) {
     if (leftSensorsDetectLine) {
       gentleTurnLeft();
@@ -73,7 +61,7 @@ void loop() {
       moveStraight();
     }
   } else {
-    stopMotors();
+    moveStraight();  // Continue moving if no clear line detection
   }
 }
 
