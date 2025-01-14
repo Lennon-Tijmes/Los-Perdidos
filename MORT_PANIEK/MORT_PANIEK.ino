@@ -19,9 +19,9 @@
 // #define DEBUG4 1
 // #define DEBUG5 1
 #define START_AT_MAZE 1
+#define WAIT_FOR_SIGNAL 1
 #define NEW_INTERRUPTS_HANDLING 1
 #define STARTUP_DELAY 2000
-#define WAIT_FOR_SIGNAL 1
 
 
 
@@ -129,6 +129,7 @@ void setup()
 
   programStartTime = millis();
   changePhase(PHASE_STARTUP_WAIT);
+  lights(WHITE);
 }
 
 void loop()
@@ -148,7 +149,7 @@ void loop()
   }
 
   // updateGripper();
-  updateLights();
+  // updateLights();
 }
 
 void changePhase(unsigned char phase)
@@ -169,11 +170,11 @@ void changePhase(unsigned char phase)
 void countRotationsLeft()
 {
   static unsigned long timer;
-#ifdef NEW_INTERRUPTS_HANDLING
-  detachInterrupt(digitalPinToInterrupt(ROTATION_SENSOR_LEFT_PIN));
-#else
-  noInterrupts();
-#endif
+  #ifdef NEW_INTERRUPTS_HANDLING
+    detachInterrupt(digitalPinToInterrupt(ROTATION_SENSOR_LEFT_PIN));
+  #else
+    noInterrupts();
+  #endif
 
   if (millis() > timer)
   {
@@ -181,22 +182,22 @@ void countRotationsLeft()
     timer = millis() + DEBOUNCE_TIME_MS;
   }
 
-#ifdef NEW_INTERRUPTS_HANDLING
-  attachInterrupt(digitalPinToInterrupt(ROTATION_SENSOR_LEFT_PIN), countRotationsLeft, RISING);
-#else
-  interrupts();
-#endif
+  #ifdef NEW_INTERRUPTS_HANDLING
+    attachInterrupt(digitalPinToInterrupt(ROTATION_SENSOR_LEFT_PIN), countRotationsLeft, RISING);
+  #else
+    interrupts();
+  #endif
 }
 
 // Counts the interrupts of the rotation sensor for the right wheel
 void countRotationsRight()
 {
   static unsigned long timer;
-#ifdef NEW_INTERRUPTS_HANDLING
-  detachInterrupt(digitalPinToInterrupt(ROTATION_SENSOR_RIGHT_PIN));
-#else
-  noInterrupts();
-#endif
+  #ifdef NEW_INTERRUPTS_HANDLING
+    detachInterrupt(digitalPinToInterrupt(ROTATION_SENSOR_RIGHT_PIN));
+  #else
+    noInterrupts();
+  #endif
 
   if (millis() > timer)
   {
@@ -204,11 +205,11 @@ void countRotationsRight()
     timer = millis() + DEBOUNCE_TIME_MS;
   }
 
-#ifdef NEW_INTERRUPTS_HANDLING
-  attachInterrupt(digitalPinToInterrupt(ROTATION_SENSOR_RIGHT_PIN), countRotationsRight, RISING);
-#else
-  interrupts();
-#endif
+  #ifdef NEW_INTERRUPTS_HANDLING
+    attachInterrupt(digitalPinToInterrupt(ROTATION_SENSOR_RIGHT_PIN), countRotationsRight, RISING);
+  #else
+    interrupts();
+  #endif
 }
 
 
@@ -312,7 +313,8 @@ void updateSonar()
         sonarSignalDuration = 0;
         sonarLastActionTime = millis();
         sonarPhase = SONAR_FRONT_SEND_SIGNAL;
-      } else if (millis() - sonarLastActionTime > SONAR_RECEIVER_TIMEOUT_MS)
+      }
+      else if (millis() - sonarLastActionTime > SONAR_RECEIVER_TIMEOUT_MS)
       {
         currentDistanceLeft = SONAR_NO_READING;
         sonarLastActionTime = millis();
@@ -345,7 +347,8 @@ void updateSonar()
         sonarSignalDuration = 0;
         sonarLastActionTime = millis();
         sonarPhase = SONAR_RIGHT_SEND_SIGNAL;
-      } else if (millis() - sonarLastActionTime > SONAR_RECEIVER_TIMEOUT_MS)
+      }
+      else if (millis() - sonarLastActionTime > SONAR_RECEIVER_TIMEOUT_MS)
       {
         currentDistanceFront = SONAR_NO_READING;
         sonarLastActionTime = millis();
@@ -380,7 +383,8 @@ void updateSonar()
           sonarSignalDuration = 0;
           sonarLastActionTime = millis();
           sonarPhase = SONAR_UPDATE_DISTANCES;
-        } else if (millis() - sonarLastActionTime > SONAR_RECEIVER_TIMEOUT_MS)
+        }
+        else if (millis() - sonarLastActionTime > SONAR_RECEIVER_TIMEOUT_MS)
         {
           currentDistanceRight = SONAR_NO_READING;
           sonarLastActionTime = millis();
@@ -407,6 +411,8 @@ void updateSonar()
 // MOTOR //
 ///////////
 
+#define WHEEL_INERTIA_DELAY_MS 2
+
 #define FORWARDS_MODE LOW
 #define BACKWARDS_MODE HIGH
 
@@ -415,22 +421,30 @@ void setMotors(int leftMotorSpeed, int rightMotorSpeed)
   if (leftMotorSpeed >= 0)
   {
     digitalWrite(MOTOR_LEFT_MODE_PIN, FORWARDS_MODE);
+    analogWrite(MOTOR_LEFT_POWER_PIN, 255);
+    delay(WHEEL_INERTIA_DELAY_MS);
     analogWrite(MOTOR_LEFT_POWER_PIN, leftMotorSpeed);
-  } else /* leftMotorSpeed < 0 */
- 
- {
+  }
+  else /* leftMotorSpeed < 0 */
+  {
     digitalWrite(MOTOR_LEFT_MODE_PIN, BACKWARDS_MODE);
+    analogWrite(MOTOR_LEFT_POWER_PIN, 0);
+    delay(WHEEL_INERTIA_DELAY_MS);
     analogWrite(MOTOR_LEFT_POWER_PIN, 255 + leftMotorSpeed);
   }
 
   if (rightMotorSpeed >= 0)
   {
     digitalWrite(MOTOR_RIGHT_MODE_PIN, FORWARDS_MODE);
+    analogWrite(MOTOR_RIGHT_POWER_PIN, 255);
+    delay(WHEEL_INERTIA_DELAY_MS);
     analogWrite(MOTOR_RIGHT_POWER_PIN, rightMotorSpeed);
-  } else /* rightMotorSpeed < 0 */
- 
- {
+  }
+  else /* rightMotorSpeed < 0 */
+  {
     digitalWrite(MOTOR_RIGHT_MODE_PIN, BACKWARDS_MODE);
+    analogWrite(MOTOR_RIGHT_POWER_PIN, 0);
+    delay(WHEEL_INERTIA_DELAY_MS);
     analogWrite(MOTOR_RIGHT_POWER_PIN, 255 + rightMotorSpeed);
   }
 }
@@ -444,11 +458,7 @@ void drive(unsigned char mode)
   {
     case STOP: setMotors(0, 0); break;
     case FORWARDS: setMotors(leftSpeed, rightSpeed); break;
-    case BACKWARDS:
-      if (lastMode == LEFT) setMotors(-leftSpeed, -100);
-      else if (lastMode == RIGHT) setMotors(-100, -rightSpeed);
-      else setMotors(-leftSpeed, -rightSpeed);
-    break;
+    case BACKWARDS: setMotors(-leftSpeed, -rightSpeed); break;
 
     case LEFT: setMotors(100, rightSpeed); break;
     case RIGHT: setMotors(leftSpeed, 100); break;
@@ -562,7 +572,8 @@ bool hasReceivedSignal()
       Serial.println(" Response");
       return true;
     }
-  } else
+  }
+  else
   {
     // maybe flash lights to say that we cannot connect to base
   }
@@ -619,20 +630,24 @@ void phase_followLineStart()
     if (lastDirection == LEFT)
     {
       drive(ADJUST_LEFT);
-    } else
+    }
+    else
     {
       drive(ADJUST_RIGHT);
     }
-  } else
+  }
+  else
   {
     if (goForwards)
     {
       drive(FORWARDS);
-    } else if (turnRight)
+    }
+    else if (turnRight)
     {
       drive(ADJUST_RIGHT);
       lastDirection = RIGHT;
-    } else if (turnLeft)
+    }
+    else if (turnLeft)
     {
       drive(ADJUST_LEFT);
       lastDirection = LEFT;
@@ -663,20 +678,24 @@ unsigned long activeTaskTimer = millis();
 
 void phase_driveMaze()
 {
-  // if (millis() - programPhaseStartTime > CHECK_FINISH_LINE_DELAY_MS)
-  // {
-  //   if (checkLineSensorForFinish())
-  //  {
-  //     changePhase(PHASE_FOLLOW_LINE_END);
-  //     return;
-  //   }
-  // }
+  static unsigned long stuckTimer = millis();
+  static unsigned int stuckRotations = 0;
+  static unsigned char stuckCounter = 0;
+  static unsigned char previousTask = STOP;
+  previousTask = lastMode;
+
+  // check for finish line
+  if (millis() - programPhaseStartTime > CHECK_FINISH_LINE_DELAY_MS)
+  {
+    if (!allWhite)
+    {
+      changePhase(PHASE_FOLLOW_LINE_END);
+      return;
+    }
+  }
 
   // If a task is ongoing, let it continue
-  if (millis() < activeTaskTimer)
-  {
-    return;
-  }
+  if (millis() < activeTaskTimer) return;
 
   // If a sonar failed, wait until it's fixed
   if (distanceLeft >= SONAR_NO_READING || distanceFront >= SONAR_NO_READING || distanceRight >= SONAR_NO_READING)
@@ -686,26 +705,32 @@ void phase_driveMaze()
     return;
   }
 
-  // if backwards then continue the turning but backwards
-
-  // stuck detection? if hit front wall 3 times in a row then change turn to sharp 90 or 60
-
-  // left+right sensors = ~15cm
+  // robot AI
   if (distanceFront < 10)
-    if (distanceLeft < 10 && distanceRight < 10) turnAround();
-    else drive(BACKWARDS);
+    if (distanceLeft < 15 && distanceRight < 15) turnAround();
+    else doTask(BACKWARDS, 150);
   else if (distanceLeft > 25) doTask(LEFT, 100);
-  else if (distanceRight > 25) doTask(RIGHT, 100);
-  else if (distanceLeft < 4) doTask(RIGHT, 100);
-  else if (distanceRight < 4) doTask(LEFT, 100);
+  else if (distanceFront > 25) drive(FORWARDS);
+  else if (distanceRight > 20) doTask(RIGHT, 100);
+  else if (distanceLeft < 5) doTask(RIGHT, 100);
+  else if (distanceRight < 5) doTask(LEFT, 100);
   else if (distanceFront > 10) drive(FORWARDS);
   else turnAround();
-}
 
-bool checkLineSensorForFinish()
-{
-  updateLineSensor();
-  return !allWhite;
+  // stuck detection - if wheels not spinning go backwards
+  if (millis() - stuckTimer > 200)
+  {
+    if (leftRotationTicks + rightRotationTicks <= stuckRotations + 5) doTask(BACKWARDS, 200);
+    else stuckRotations = leftRotationTicks + rightRotationTicks;
+
+    stuckTimer = millis();
+  }
+
+  // if robot is stuck in forwards-backwards loop
+  if (lastMode != previousTask)
+    if (lastMode == FORWARDS && previousTask == BACKWARDS || lastMode == BACKWARDS && previousTask == FORWARDS) stuckCounter++;
+    else stuckCounter = 0;
+  if (stuckCounter > 6) doTask(LEFT, 100);
 }
 
 void doTask(unsigned char task, unsigned long duration)
@@ -717,24 +742,11 @@ void doTask(unsigned char task, unsigned long duration)
 void turnAround()
 {
   if (distanceRight > distanceLeft)
-  {
-    if (distanceLeft > 4)
-    {
-      doTask(ROTATE_RIGHT, 850);
-    } else
-    {
-      doTask(ROTATE_RIGHT, 850);
-    }
-  } else
-  {
-    if (distanceRight > 4)
-    {
-      doTask(ROTATE_LEFT, 850);
-    } else
-    {
-      doTask(ROTATE_LEFT, 850);
-    }
-  }
+    if (distanceLeft > 5) doTask(ROTATE_RIGHT, 750);
+    else doTask(ROTATE_RIGHT, 750);
+  else
+    if (distanceRight > 5) doTask(ROTATE_LEFT, 750);
+    else doTask(ROTATE_LEFT, 750);
 }
 
 bool numbersAreClose(double a, double b, double diff)
@@ -767,26 +779,31 @@ void phase_followLineEnd()
         if (forwards)
         {
           drive(FORWARDS);
-        } else if (turnRight)
+        }
+        else if (turnRight)
         {
           drive(ADJUST_RIGHT);
           lastDirection = RIGHT;
-        } else if (turnLeft)
+        }
+        else if (turnLeft)
         {
           drive(ADJUST_LEFT);
           lastDirection = LEFT;
         }
-      } else
+      }
+      else
       {
         if (lastDirection == RIGHT)
         {
           drive(ADJUST_RIGHT_HARD);
-        } else
+        }
+        else
         {
           drive(ADJUST_LEFT_HARD);
         }
       }
-    } else
+    }
+    else
     {
       setGripper(GRIPPER_OPEN);
       drive(STOP);
@@ -859,8 +876,6 @@ void printDebug5(String message)
 
 void updateLights()
 {
-  lights(WHITE);
-
   switch (lastMode)
   {
     case STOP: brakeLights(); break;
@@ -882,7 +897,7 @@ void updateLights()
   }
 }
 
-void lights(unsigned char color)
+void lights(unsigned int color)
 {
   switch (color)
   {
@@ -898,7 +913,7 @@ void lights(unsigned char color)
   }
 }
 
-void light(unsigned int ledID, unsigned char color)
+void light(unsigned int ledID, unsigned int color)
 {
   switch (color)
   {
@@ -929,7 +944,7 @@ void light(unsigned int ledID, unsigned int red, unsigned int green, unsigned in
   pixels.show();
 }
 
-void leftBlinker(unsigned char color)
+void leftBlinker(unsigned int color)
 {
   static bool lightOn = false;
   static unsigned long timer = millis();
@@ -940,7 +955,8 @@ void leftBlinker(unsigned char color)
     {
       light(LED_FRONT_LEFT, WHITE);
       light(LED_BACK_LEFT, WHITE);
-    } else
+    }
+    else
     {
       light(LED_FRONT_LEFT, color);
       light(LED_BACK_LEFT, color);
@@ -951,7 +967,7 @@ void leftBlinker(unsigned char color)
   }
 }
 
-void rightBlinker(unsigned char color)
+void rightBlinker(unsigned int color)
 {
   static bool lightOn = false;
   static unsigned long timer = millis();
@@ -962,7 +978,8 @@ void rightBlinker(unsigned char color)
     {
       light(LED_FRONT_RIGHT, WHITE);
       light(LED_BACK_RIGHT, WHITE);
-    } else
+    }
+    else
     {
       light(LED_FRONT_RIGHT, color);
       light(LED_BACK_RIGHT, color);
@@ -973,7 +990,7 @@ void rightBlinker(unsigned char color)
   }
 }
 
-void backLeftBlinker(unsigned char color)
+void backLeftBlinker(unsigned int color)
 {
   static bool lightOn = false;
   static unsigned long timer = millis();
@@ -984,7 +1001,8 @@ void backLeftBlinker(unsigned char color)
     {
       light(LED_FRONT_LEFT, WHITE);
       light(LED_BACK_LEFT, RED);
-    } else
+    }
+    else
     {
       light(LED_FRONT_LEFT, color);
       light(LED_BACK_LEFT, color);
@@ -995,7 +1013,7 @@ void backLeftBlinker(unsigned char color)
   }
 }
 
-void backRightBlinker(unsigned char color)
+void backRightBlinker(unsigned int color)
 {
   static bool lightOn = false;
   static unsigned long timer = millis();
@@ -1006,7 +1024,8 @@ void backRightBlinker(unsigned char color)
     {
       light(LED_FRONT_RIGHT, WHITE);
       light(LED_BACK_RIGHT, RED);
-    } else
+    }
+    else
     {
       light(LED_FRONT_RIGHT, color);
       light(LED_BACK_RIGHT, color);
@@ -1023,7 +1042,7 @@ void brakeLights()
   light(LED_BACK_RIGHT, RED);
 }
 
-void backwardsLights(unsigned char color)
+void backwardsLights(unsigned int color)
 {
   static bool lightOn = false;
   static unsigned long timer = millis();
@@ -1034,7 +1053,8 @@ void backwardsLights(unsigned char color)
     {
       light(LED_BACK_LEFT, WHITE);
       light(LED_BACK_RIGHT, WHITE);
-    } else
+    }
+    else
     {
       light(LED_BACK_LEFT, color);
       light(LED_BACK_RIGHT, color);
@@ -1045,7 +1065,7 @@ void backwardsLights(unsigned char color)
   }
 }
 
-void hazardLights(unsigned char color)
+void hazardLights(unsigned int color)
 {
   static bool lightOn = false;
   static unsigned long timer = millis();
@@ -1055,7 +1075,8 @@ void hazardLights(unsigned char color)
     if (lightOn)
     {
       lights(WHITE);
-    } else
+    }
+    else
     {
       lights(color);
     }
