@@ -13,8 +13,15 @@
 
 
 
-// #define DEBUG 1
+#define DEBUG 1
+// #define DEBUG2 1
+//#define DEBUG3 1
+//#define DEBUG4 1
+//#define DEBUG5 1
 #define STARTUP_DELAY 2000
+//#define ENABLE_PHASE_MAP_MAZE 1
+//#define ENABLE_PHASE_WAIT_FOR_SIGNAL 1
+// #define NEW_INTERRUPTS_HANDLING 1
 
 
 
@@ -45,11 +52,11 @@ const unsigned char LINE_SENSOR_PINS[] = {A2, A3, A4, A5, A6, A7};
 
 // Phase
 #define STARTUP_WAIT      0
-#define WAIT_FOR_START    1 // Wait for start signal
+#define WAIT_FOR_SIGNAL   1 // Wait for start signal
 #define CALIBRATE         2 // Drive a bit and calculate motor strength and timings
 #define MAP_MAZE          3 // Go look for maze solution
 #define RETURN_TO_START   4 // Stop looking and drive back to maze start
-#define WAIT_FOR_SIGNAL   5 // Wait for signal from master
+#define WAIT_FOR_SIGNAL_2 5 // Wait for signal from master
 #define DRIVE_TO_SQUARE   6 // drive forward till black square, grab the pin and turn left
 #define FOLLOW_LINE_START 7 // follow the line untill inside of the maze
 #define DRIVE_PATH        8 // Drive the mapped path through the maze
@@ -67,16 +74,26 @@ unsigned long programStartTime;
 #define TURN_RIGHT_90      4
 #define SHORT_LEFT_90      5
 #define SHORT_RIGHT_90     6
-#define ROTATE_LEFT_180    7  // anti-clockwise
-#define ROTATE_RIGHT_180   8  // clockwise
-#define TURN_AROUND_LEFT   9  // anti-clockwise
-#define TURN_AROUND_RIGHT  10 // clockwise
-#define ADJUST_ROTATION    11
-#define ADJUST_POSITION    12
-#define PAUSE              13
-#define UPDATE_SONAR       14
-#define DRIVE_FORWARDS_2   15
-#define UPDATE_SONAR_2     16
+#define SIMPLE_LEFT_90_1   7
+#define SIMPLE_RIGHT_90_1  8
+#define SIMPLE_LEFT_90_2   9
+#define SIMPLE_RIGHT_90_2  10
+#define SIMPLE_LEFT_90_3   11
+#define SIMPLE_RIGHT_90_3  12
+#define SIMPLE_LEFT_90     SIMPLE_LEFT_90_1
+#define SIMPLE_RIGHT_90    SIMPLE_RIGHT_90_1
+#define ROTATE_LEFT_180    13 // anti-clockwise
+#define ROTATE_RIGHT_180   14 // clockwise
+#define TURN_AROUND_LEFT   15 // anti-clockwise
+#define TURN_AROUND_RIGHT  16 // clockwise
+#define ADJUST_ROTATION    17
+#define ADJUST_POSITION    18
+#define PAUSE              19
+#define UPDATE_SONAR       20
+#define DRIVE_FORWARDS_2   21
+#define UPDATE_SONAR_2     22
+#define GO_BACK            23
+#define TURN_AROUND        24
 #define PATH_FINISHED      99
 #define GIVE_UP            100
 unsigned char currentTask = 0;
@@ -99,7 +116,7 @@ unsigned char nextTask = 0;
 #define ROTATE_LEFT       11
 #define ROTATE_RIGHT      12
 #define ADJUST_LEFT       13
-#define ADJUST_RIGHT      14
+#define ADJUST_RIGHT      
 #define ADJUST_LEFT_HARD  15
 #define ADJUST_RIGHT_HARD 16
 int leftSpeed = 0;
@@ -133,17 +150,23 @@ double maxDistanceRight = 0;
 
 #define MAX_SONAR_UPDATES 3
 unsigned int sonarUpdates = 0;
-double distancesLeft[MAX_SONAR_UPDATES];
-double distancesFront[MAX_SONAR_UPDATES];
-double distancesRight[MAX_SONAR_UPDATES];
 
 #define MAX_INT 2147483647
+#define INFINITE_ROTATIONS MAX_INT
 unsigned int leftRotationTicks = 0;
 unsigned int rightRotationTicks = 0;
 unsigned int prevLeftRotationTicks = 0;
 unsigned int prevRightRotationTicks = 0;
-unsigned int targetLeftRotationTicks = MAX_INT;
-unsigned int targetRightRotationTicks = MAX_INT;
+unsigned int targetLeftRotationTicks = INFINITE_ROTATIONS;
+unsigned int targetRightRotationTicks = INFINITE_ROTATIONS;
+
+#define MAX_ROTATION_MEASUREMENTS 20
+char rotationTimeLeftCounter = -1;
+unsigned long rotationTimeLeftStart;
+unsigned long rotationTimeLeftEnd;
+char rotationTimeRightCounter = -1;
+unsigned long rotationTimeRightStart;
+unsigned long rotationTimeRightEnd;
 
 // Lights
 bool allBlack = false;
@@ -159,6 +182,7 @@ bool mazeEntered = false;
 bool squarePassed = false;
 bool finishFound = false;
 bool startSignalRecieved = false;
+unsigned long continueMazePhaseStartTime;
 
 void setup()
 {
@@ -186,7 +210,7 @@ void setup()
   currentTime = millis();
   programStartTime = currentTime;
 
-  programPhase = STARTUP_WAIT;
+  programPhase = CONTINUE_MAZE;
   currentTask = UPDATE_SONAR;
   currentTaskDuration = 2000;
   nextTask = CHOOSE_TASK;
@@ -204,9 +228,9 @@ void loop()
     {
       phase_startupWait();
     } break;
-    case WAIT_FOR_START:
+    case WAIT_FOR_SIGNAL:
     {
-      phase_waitForStart();
+      phase_waitForSignal();
     } break;
     case CALIBRATE:
     {
@@ -220,9 +244,9 @@ void loop()
     {
       phase_returnToStart();
     } break;
-    case WAIT_FOR_SIGNAL:
+    case WAIT_FOR_SIGNAL_2:
     {
-      phase_waitForSignal();
+      phase_waitForSignal2();
     } break;
     case DRIVE_TO_SQUARE:
     {
@@ -234,6 +258,7 @@ void loop()
     } break;
     case CONTINUE_MAZE:
     {
+      continueMazePhaseStartTime = currentTime;
       phase_continueMaze();
     } break;
     case FOLLOW_LINE_END:
@@ -288,7 +313,7 @@ void updateLineSensor()
 #define SONAR_SIGNAL_DURATION_US  10
 
 // Minimum delay before switching to next sonar
-#define SONAR_DELAY_MS            10
+#define SONAR_DELAY_MS            5
 
 // We assume the maze is 7x7, which means the longest distance to measure should be 7*30cm = 210cm
 // Speed of sound is around 35cm/ms=210cm/6ms, so the sound signal should take at most 12ms to come back to the robot
@@ -320,7 +345,6 @@ void updateSonar()
     case SONAR_LEFT_SEND_SIGNAL:
       if (currentTime - sonarLastActionTime > SONAR_DELAY_MS)
       {
-
         digitalWrite(SONAR_LEFT_TRIG_PIN, HIGH);
         delayMicroseconds(SONAR_SIGNAL_DURATION_US);
         digitalWrite(SONAR_LEFT_TRIG_PIN, LOW);
@@ -338,7 +362,6 @@ void updateSonar()
         else distanceLeft = (double)sonarSignalDuration * microsecondsToCentimeters;
         if (minDistanceLeft > distanceLeft) minDistanceLeft = distanceLeft;
         if (maxDistanceLeft < distanceLeft) maxDistanceLeft = distanceLeft;
-        distancesLeft[sonarUpdates] = distanceLeft;
         
         sonarSignalDuration = 0;
         sonarLastActionTime = currentTime;
@@ -347,7 +370,6 @@ void updateSonar()
       else if (currentTime - sonarLastActionTime > SONAR_RECEIVER_TIMEOUT_MS)
       {
         distanceLeft = SONAR_NO_READING;
-        distancesLeft[sonarUpdates] = distanceLeft;
         sonarLastActionTime = currentTime;
         sonarPhase = SONAR_FRONT_SEND_SIGNAL;
       }
@@ -376,7 +398,6 @@ void updateSonar()
         else distanceFront = (double)sonarSignalDuration * microsecondsToCentimeters;
         if (minDistanceFront > distanceFront) minDistanceFront = distanceFront;
         if (maxDistanceFront < distanceFront) maxDistanceFront = distanceFront;
-        distancesFront[sonarUpdates] = distanceFront;
 
         sonarSignalDuration = 0;
         sonarLastActionTime = currentTime;
@@ -385,11 +406,10 @@ void updateSonar()
       else if (currentTime - sonarLastActionTime > SONAR_RECEIVER_TIMEOUT_MS)
       {
         distanceFront = SONAR_NO_READING;
-        distancesFront[sonarUpdates] = distanceFront;
         sonarLastActionTime = currentTime;
         sonarPhase = SONAR_RIGHT_SEND_SIGNAL;
       }
-      break;
+      break;  
 
     // Right sonar
 
@@ -415,7 +435,6 @@ void updateSonar()
         else distanceRight = (double)sonarSignalDuration * microsecondsToCentimeters;
         if (minDistanceRight > distanceRight) minDistanceRight = distanceRight;
         if (maxDistanceRight < distanceRight) maxDistanceRight = distanceRight;
-        distancesRight[sonarUpdates] = distanceRight;
 
         sonarSignalDuration = 0;
         sonarLastActionTime = currentTime;
@@ -425,7 +444,6 @@ void updateSonar()
       else if (currentTime - sonarLastActionTime > SONAR_RECEIVER_TIMEOUT_MS)
       {
         distanceRight = SONAR_NO_READING;
-        distancesRight[sonarUpdates] = distanceRight;
         sonarLastActionTime = currentTime;
         sonarPhase = SONAR_LEFT_SEND_SIGNAL;
         sonarUpdates++;
@@ -435,42 +453,139 @@ void updateSonar()
   }
 }
 
+void resetSonar()
+{
+  sonarUpdates = 0;
+  minDistanceLeft = SONAR_NO_READING;
+  minDistanceFront = SONAR_NO_READING;
+  minDistanceRight = SONAR_NO_READING;
+  maxDistanceLeft = 0;
+  maxDistanceFront = 0;
+  maxDistanceRight = 0;
+}
+
 
 
 /////////////////////
 // ROTATION SENSOR //
 /////////////////////
 
-#define DEBOUNCE_TIME_MS 10; // Debounce time for more accurate rotation sensor reading
+#define DEBOUNCE_TIME_MS 30; // Debounce time for more accurate rotation sensor reading
 
 // Counts the interrupts of the rotation sensor for the left wheel
 void countRotationsLeft()
 {
   static unsigned long timer;
-  noInterrupts();
+  #ifdef NEW_INTERRUPTS_HANDLING
+    detachInterrupt(digitalPinToInterrupt(ROTATION_SENSOR_LEFT_PIN));
+  #else
+    noInterrupts();
+  #endif
 
   if (millis() > timer)
   {
     leftRotationTicks++;
     timer = millis() + DEBOUNCE_TIME_MS;
+
+    if (rotationTimeLeftCounter == -1)
+    {
+      rotationTimeLeftStart = millis();
+    }
+    if (rotationTimeLeftCounter < MAX_ROTATION_MEASUREMENTS)
+    {
+      rotationTimeLeftEnd = millis();
+      rotationTimeLeftCounter++;
+    }
   }
 
-  interrupts();
+  #ifdef NEW_INTERRUPTS_HANDLING
+    attachInterrupt(digitalPinToInterrupt(ROTATION_SENSOR_LEFT_PIN),  countRotationsLeft,  RISING);
+  #else
+    interrupts();
+  #endif
 }
 
 // Counts the interrupts of the rotation sensor for the right wheel
 void countRotationsRight()
 {
   static unsigned long timer;
-  noInterrupts();
+  #ifdef NEW_INTERRUPTS_HANDLING
+    detachInterrupt(digitalPinToInterrupt(ROTATION_SENSOR_RIGHT_PIN));
+  #else
+    noInterrupts();
+  #endif
 
   if (millis() > timer)
   {
     rightRotationTicks++;
     timer = millis() + DEBOUNCE_TIME_MS;
+
+    if (rotationTimeRightCounter == -1)
+    {
+      rotationTimeRightStart = millis();
+    }
+    if (rotationTimeRightCounter < MAX_ROTATION_MEASUREMENTS)
+    {
+      rotationTimeRightEnd = millis();
+      rotationTimeRightCounter++;
+    }
   }
 
-  interrupts();
+  #ifdef NEW_INTERRUPTS_HANDLING
+    attachInterrupt(digitalPinToInterrupt(ROTATION_SENSOR_RIGHT_PIN),  countRotationsRight,  RISING);
+  #else
+    interrupts();
+  #endif
+}
+
+void resetRotationTimeCounters()
+{
+  rotationTimeLeftCounter = -1;
+  rotationTimeRightCounter = -1;
+}
+
+void updateSpeedsFromRotationTimes()
+{
+  double leftCounter = (double)rotationTimeLeftCounter;
+  double rightCounter = (double)rotationTimeRightCounter;
+  unsigned int leftTicks = leftRotationTicks - prevLeftRotationTicks;
+  unsigned int rightTicks = rightRotationTicks - prevRightRotationTicks;
+
+  if (leftCounter < 1 || rightCounter < 1)
+  {
+    return;
+  }
+
+  double averageLeftRotationTime = (double)(rotationTimeLeftEnd - rotationTimeLeftStart) / (double)leftCounter;
+  double averageRightRotationTime = (double)(rotationTimeRightEnd - rotationTimeRightStart) / (double)rightCounter;
+
+  printDebug2(String("Average rotation times (L|R): ") + averageLeftRotationTime + " | " + averageRightRotationTime + " #" + leftCounter + "|" + rightCounter);
+  printDebug2(String("Rotation ticks (L|R): ") + leftTicks + " | " + rightTicks);
+
+  if (averageRightRotationTime > averageLeftRotationTime)
+  {
+    if (forwardsLeftMotorSpeed >= 255)
+    {
+      forwardsRightMotorSpeed--;
+    }
+    else
+    {
+      forwardsLeftMotorSpeed++;
+    }
+  }
+  else
+  {
+    if (forwardsRightMotorSpeed >= 255)
+    {
+      forwardsLeftMotorSpeed--;
+    }
+    else
+    {
+      forwardsRightMotorSpeed++;
+    }
+  }
+
+  printDebug2(String("Adjusted speed (L|R):") + forwardsLeftMotorSpeed + " | " + forwardsRightMotorSpeed);
 }
 
 
@@ -517,23 +632,28 @@ void drive(char mode)
     case STOP:
     {
       setMotors(0, 0);
+      brakeLights();
     } break;
     case FORWARDS:
     {
       setMotors(forwardsLeftMotorSpeed, forwardsRightMotorSpeed);
+      idleLights();
     } break;
     case BACKWARDS:
     {
       setMotors(backwardsLeftMotorSpeed, backwardsRightMotorSpeed);
+      backwardsLights();
     } break;
 
     case TURN_LEFT:
     {
       setMotors(leftTurnLeftMotorSpeed, leftTurnRightMotorSpeed);
+      turnLeftLights();
     } break;
     case TURN_RIGHT:
     {
       setMotors(rightTurnLeftMotorSpeed, rightTurnRightMotorSpeed);
+      turnRightLights();
     } break;
     case TURN_LEFT_BACK:
     {
@@ -547,36 +667,44 @@ void drive(char mode)
     case SHORT_LEFT:
     {
       setMotors(0, leftTurnRightMotorSpeed);
+      turnLeftLights();
     } break;
     case SHORT_RIGHT:
     {
       setMotors(rightTurnLeftMotorSpeed, 0);
+      turnRightLights();
     } break;
     case SHORT_LEFT_BACK:
     {
       setMotors(0, -leftTurnRightMotorSpeed);
+      turnLeftLights();
     } break;
     case SHORT_RIGHT_BACK:
     {
       setMotors(-rightTurnLeftMotorSpeed, 0);
+      turnRightLights();
     } break;
 
     case ROTATE_LEFT:
     {
       setMotors(backwardsLeftMotorSpeed, forwardsRightMotorSpeed);
+      turnLeftLights();
     } break;
     case ROTATE_RIGHT:
     {
       setMotors(forwardsLeftMotorSpeed, backwardsRightMotorSpeed);
+      turnRightLights();
     } break;
 
     case ADJUST_LEFT:
     {
       setMotors(160, 240);
+      turnLeftLights();
     } break;
     case ADJUST_RIGHT:
     {
       setMotors(240, 165);
+      turnRightLights();
     } break;
     case ADJUST_LEFT_HARD:
     {
@@ -585,6 +713,7 @@ void drive(char mode)
     case ADJUST_RIGHT_HARD:
     {
       setMotors(240, -190);
+      turnRightLights();
     } break;
   }
 }
@@ -611,6 +740,306 @@ void setGripper(unsigned int pulse)
 
 
 
+/////////////////////
+// TASK MANEGEMENT //
+/////////////////////
+
+void startTask(unsigned char task)
+{
+  printDebug(String("Starting task ") + translateTask(task));
+  targetLeftRotationTicks = MAX_INT;
+  targetRightRotationTicks = MAX_INT;
+  hazardLights();
+
+  // drive(STOP);
+  // delay(50); // let robot stop so switching from forwards to backwards doesnt slide
+
+  switch (task)
+  {
+    case CHOOSE_TASK:
+    {
+      resetTaskVariables(task, 1000, INFINITE_ROTATIONS, CHOOSE_TASK);
+      drive(STOP);
+    } break;
+
+    case DRIVE_FORWARDS_30: { // calculated: 1176ms | 30
+      resetTaskVariables(task, 1120, 30, CHOOSE_TASK);
+      drive(FORWARDS);
+    } break;
+    case DRIVE_BACKWARDS_30: { // calculated: 1176ms | 30
+      resetTaskVariables(task, 1120, 30, UPDATE_SONAR);
+      drive(BACKWARDS);
+    } break;
+
+    case TURN_LEFT_90: { // calculated: 1263ms | 14.61 / 31.5377
+      resetTaskVariables(task, 1263, 31, UPDATE_SONAR);
+      drive(TURN_LEFT);
+    } break;
+    case TURN_RIGHT_90: { // calculated: 1263ms | 14.61 / 31.5377
+      resetTaskVariables(task, 1255, 31, UPDATE_SONAR);
+      drive(TURN_RIGHT);
+    } break;
+    case SHORT_LEFT_90: { // calculated: 677ms | 16.9233
+      resetTaskVariables(task, 800, 17, UPDATE_SONAR);
+      drive(SHORT_LEFT);
+    } break;
+    case SHORT_RIGHT_90: { // calculated: 677ms | 16.9233
+      resetTaskVariables(task, 800, 17, UPDATE_SONAR);
+      drive(SHORT_RIGHT);
+    } break;
+
+    case SIMPLE_LEFT_90_1: { // calculated: 350ms | 9.3
+      resetTaskVariables(task, 350, 9, SIMPLE_LEFT_90_2);
+      drive(FORWARDS);
+    } break;
+    case SIMPLE_LEFT_90_2: { // calculated: 677ms | 16.9233
+      resetTaskVariables(task, 677, 17, SIMPLE_LEFT_90_3);
+      drive(SHORT_LEFT);
+    } break;
+    case SIMPLE_LEFT_90_3: { // calculated: 350ms | 9.3
+      resetTaskVariables(task, 350, 9, UPDATE_SONAR);
+      drive(FORWARDS);
+    } break;
+    case SIMPLE_RIGHT_90_1: { // calculated: 350ms | 9.3
+      resetTaskVariables(task, 350, 9, SIMPLE_RIGHT_90_2);
+      drive(FORWARDS);
+    } break;
+    case SIMPLE_RIGHT_90_2: { // calculated: 677ms | 16.9233
+      resetTaskVariables(task, 677, 17, SIMPLE_RIGHT_90_3);
+      drive(FORWARDS);
+    } break;
+    case SIMPLE_RIGHT_90_3: { // calculated: 350ms | 9.3
+      resetTaskVariables(task, 350, 9, UPDATE_SONAR);
+      drive(FORWARDS);
+    } break;
+
+    // case TURN_AROUND:
+    // {
+    //   turnAround();
+    // } break;
+
+    case ROTATE_LEFT_180: { // calculated: 1336ms | 8.462
+      resetTaskVariables(task, 800, 9, UPDATE_SONAR);
+      drive(ROTATE_LEFT);
+    } break;
+    case ROTATE_RIGHT_180: { // v: 1336ms | 8.462
+      resetTaskVariables(task, 800, 9, UPDATE_SONAR);
+      drive(ROTATE_RIGHT);
+    } break;
+    case TURN_AROUND_LEFT: { // calculated: 677ms | 16.9233
+      resetTaskVariables(task, 800, 17, SHORT_LEFT_90);
+      drive(SHORT_RIGHT_BACK);
+    } break;
+    case TURN_AROUND_RIGHT: { // calculated: 677ms | 16.9233
+      resetTaskVariables(task, 800, 17, SHORT_RIGHT_90);
+      drive(SHORT_LEFT_BACK);
+    } break;
+
+    case UPDATE_SONAR:
+    {
+      resetSonar();
+      resetTaskVariables(task, 350, INFINITE_ROTATIONS, CHOOSE_TASK);
+      drive(STOP);
+    } break;
+    case DRIVE_FORWARDS_2:
+    {
+      resetTaskVariables(task, 79, INFINITE_ROTATIONS, UPDATE_SONAR_2);
+      drive(FORWARDS);
+    } break;
+    case UPDATE_SONAR_2:
+    {
+      resetTaskVariables(task, 350, INFINITE_ROTATIONS, CHOOSE_TASK);
+      drive(STOP);
+    } break;
+    
+    case ADJUST_ROTATION:
+    {
+      adjustRotation();
+      resetTaskVariables(task, 1000, INFINITE_ROTATIONS, CHOOSE_TASK);
+    } break;
+    case ADJUST_POSITION:
+    {
+
+    } break;
+
+    case GO_BACK:
+    {
+      drive(getInverseMovementFromTask(currentTask));
+      unsigned char _nextTask;
+      if (maxDistanceLeft > 20) _nextTask = SIMPLE_LEFT_90;
+      else if (maxDistanceRight > 20) _nextTask = SIMPLE_RIGHT_90;
+      else _nextTask = TURN_AROUND;
+      resetTaskVariables(task, currentTime - currentTaskStart, leftRotationTicks - prevLeftRotationTicks, _nextTask);
+    } break;
+
+    case PAUSE:
+    {
+      resetTaskVariables(task, 1000, INFINITE_ROTATIONS, CHOOSE_TASK);
+      drive(STOP);
+    } break;
+  }
+}
+
+void resetTaskVariables(unsigned char task, unsigned long duration, unsigned int rotations, unsigned char _nextTask)
+{
+  currentTaskStart = currentTime;
+  currentTask = task;
+  currentTaskDuration = duration;
+  targetLeftRotationTicks = leftRotationTicks + rotations;
+  targetRightRotationTicks = rightRotationTicks + rotations;
+  nextTask = _nextTask;
+
+  prevLeftRotationTicks = leftRotationTicks;
+  prevRightRotationTicks = rightRotationTicks;
+  resetRotationTimeCounters();
+}
+
+void updateCurrentTask()
+{
+  if (currentTime - currentTaskStart > currentTaskDuration || leftRotationTicks >= targetLeftRotationTicks || rightRotationTicks >= targetRightRotationTicks)
+  {
+    drive(STOP);
+    
+    if (currentTask == DRIVE_FORWARDS_30 || currentTask == DRIVE_BACKWARDS_30)
+    {
+      updateSpeedsFromRotationTimes();
+    }
+    if (currentTask == UPDATE_SONAR || currentTask == UPDATE_SONAR_2)
+    {
+      printDebug(String("Sonars timed out: ") + distanceLeft + ", " + distanceFront + ", " + distanceRight);
+    }
+
+    startTask(nextTask);
+    return;
+  }
+
+  if (currentTask == UPDATE_SONAR || currentTask == UPDATE_SONAR_2)
+  {
+    if (minDistanceLeft < SONAR_NO_READING && minDistanceFront < SONAR_NO_READING && minDistanceRight < SONAR_NO_READING)
+    {
+      printDebug(String("Sonars updated: ") + distanceLeft + ", " + distanceFront + ", " + distanceRight);
+      startTask(nextTask);
+    }
+
+    if (sonarUpdates >= MAX_SONAR_UPDATES)
+    {
+      printDebug(String("Sonars updated: ") + distanceLeft + ", " + distanceFront + ", " + distanceRight);
+      startTask(nextTask);
+    }
+  }
+
+  // if DRIVE_FORWARDS_30 has been running less than half its time, keep checking front sensor
+  if (currentTask == DRIVE_FORWARDS_30 && sonarUpdates >= MAX_SONAR_UPDATES && currentTime - currentTaskStart < currentTaskDuration / 2)
+  {
+    if (maxDistanceFront < 10)
+    {
+      startTask(GO_BACK);      
+    }
+
+    resetSonar();
+  }
+}
+
+void adjustRotation()
+{
+  unsigned int lastTaskLeftRotationTicks = leftRotationTicks - prevLeftRotationTicks;
+  unsigned int lastTaskRightRotationTicks = rightRotationTicks - prevRightRotationTicks;
+
+  switch (currentTask)
+  {
+    case TURN_LEFT_90:
+    case SHORT_LEFT_90:
+    case ROTATE_LEFT_180:
+    {
+      lastTaskLeftRotationTicks += 17;
+    } break;
+    case TURN_RIGHT_90:
+    case SHORT_RIGHT_90:
+    case ROTATE_RIGHT_180:
+    {
+      lastTaskRightRotationTicks += 17;
+    } break;
+  }
+
+  if (lastTaskLeftRotationTicks > lastTaskRightRotationTicks + 1)
+  {
+    targetRightRotationTicks = rightRotationTicks + lastTaskLeftRotationTicks - lastTaskRightRotationTicks;
+    drive(SHORT_LEFT);
+    //TODO adjust speed variables depending on task
+    printDebug(String("Adjusting rotation left for ") + (targetRightRotationTicks - leftRotationTicks) + " ticks");
+  }
+  if (lastTaskRightRotationTicks > lastTaskLeftRotationTicks + 1)
+  {
+    targetLeftRotationTicks = leftRotationTicks + lastTaskRightRotationTicks - lastTaskLeftRotationTicks;
+    drive(SHORT_RIGHT);
+    //TODO adjust speed variables depending on task
+    printDebug(String("Adjusting rotation right for ") + (targetLeftRotationTicks - rightRotationTicks) + " ticks");
+  }
+}
+
+void adjustPosition()
+{
+
+}
+
+// we assume we're surrounded by 3 walls and not touching any wall
+void turnAround()
+{
+  updateSonar();
+  if (distanceRight > distanceLeft)
+  {
+    if (maxDistanceLeft > 5)
+    {
+      startTask(TURN_AROUND_RIGHT);
+    }
+    else
+    {
+      startTask(ROTATE_RIGHT_180);
+    }
+  }
+  else
+  {
+    if (maxDistanceRight > 5)
+    {
+      startTask(TURN_AROUND_LEFT);
+    }
+    else 
+    {
+      startTask(ROTATE_LEFT_180);
+    }
+  }
+}
+
+void checkLineSensorForFinish()
+{
+  updateLineSensor();
+
+  if (!allWhite)
+  {
+    finishFound = true;
+  }
+}
+
+unsigned char getInverseMovementFromTask(unsigned char task)
+{
+  switch(task)
+  {
+    case DRIVE_FORWARDS_30: return BACKWARDS;
+    case DRIVE_BACKWARDS_30: return FORWARDS;
+    case TURN_LEFT_90: return TURN_LEFT_BACK;
+    case TURN_RIGHT_90: return TURN_RIGHT_BACK;
+    case SHORT_LEFT_90: return SHORT_LEFT_BACK;
+    case SHORT_RIGHT_90: return SHORT_RIGHT_BACK;
+    case ROTATE_LEFT_180: return ROTATE_RIGHT;
+    case ROTATE_RIGHT_180: return ROTATE_LEFT;
+    case TURN_AROUND_LEFT: return SHORT_LEFT;
+    case TURN_AROUND_RIGHT: return SHORT_RIGHT;
+    default: return STOP;
+  }
+}
+
+
+
 //////////////////////////
 // PHASE - STARTUP_WAIT //
 //////////////////////////
@@ -619,7 +1048,7 @@ void phase_startupWait()
 {
   if (startupDelay())
   {
-    programPhase = DRIVE_TO_SQUARE;
+    programPhase = CALIBRATE;
   }
 }
 bool startupDelay()
@@ -629,15 +1058,20 @@ bool startupDelay()
 
 
 
-////////////////////////////
-// PHASE - WAIT_FOR_START //
-////////////////////////////
+/////////////////////////////
+// PHASE - WAIT_FOR_SIGNAL //
+/////////////////////////////
 
-void phase_waitForStart()
+void phase_waitForSignal()
 {
+  #ifndef ENABLE_PHASE_WAIT_FOR_SIGNAL
+    programPhase = CALIBRATE;
+    return;
+  #endif
+
   if (hasReceivedSignal())
   {
-    programPhase = CONTINUE_MAZE;
+    programPhase = CALIBRATE;
   }
 }
 
@@ -689,7 +1123,7 @@ void phase_calibrate()
 
 
   // or just don't bother
-  programPhase = DRIVE_TO_SQUARE;
+  programPhase = MAP_MAZE;
 }
 
 
@@ -705,12 +1139,16 @@ unsigned char pathIndex = 0;
 
 void phase_mapMaze()
 {
+  #ifndef ENABLE_PHASE_MAP_MAZE
+    programPhase = DRIVE_TO_SQUARE;
+    return;
+  #endif
+
   switch (currentTask)
   {
     case CHOOSE_TASK:
     {
       //TODO check if should go next phase
-      drive(STOP);
       // updateAllSonars();
 
       if (distanceRight > 20)
@@ -754,246 +1192,6 @@ void cutFromMappedPath(unsigned char number)
   }
 }
 
-void resetTaskVariables(unsigned char task, unsigned long duration, unsigned char _nextTask)
-{
-//  printDebug(String("Setting task: ") + translateTask(task) + " for " + duration + "ms");
-//  printDebug(String("Next task: ") + translateTask(_nextTask));
-  currentTaskStart = currentTime;
-  currentTask = task;
-  currentTaskDuration = duration;
-  nextTask = _nextTask;
-  prevLeftRotationTicks = leftRotationTicks;
-  prevRightRotationTicks = rightRotationTicks;
-}
-
-void updateCurrentTask()
-{
-  if (currentTime - currentTaskStart > currentTaskDuration)
-  {
-    startTask(nextTask);
-    if (currentTask == UPDATE_SONAR || currentTask == UPDATE_SONAR_2)
-    {
-      printDebug(String("Sonars timed out: ") + distanceLeft + ", " + distanceFront + ", " + distanceRight);
-    }
-    return;
-  }
-
-  if (leftRotationTicks >= targetLeftRotationTicks)
-  {
-    startTask(nextTask);
-    return;
-  }
-
-  if (rightRotationTicks >= targetRightRotationTicks)
-  {
-    startTask(nextTask);
-    return;
-  }
-
-  if (currentTask == UPDATE_SONAR || currentTask == UPDATE_SONAR_2)
-  {
-    if (minDistanceLeft < SONAR_NO_READING && minDistanceFront < SONAR_NO_READING && minDistanceRight < SONAR_NO_READING)
-    {
-      startTask(nextTask);
-      printDebug(String("Sonars updated: ") + distanceLeft + ", " + distanceFront + ", " + distanceRight);
-    }
-
-    if (sonarUpdates >= MAX_SONAR_UPDATES)
-    {
-      startTask(nextTask);
-      printDebug(String("Sonars updated: ") + distanceLeft + ", " + distanceFront + ", " + distanceRight);
-    }
-  }
-}
-
-void startTask(unsigned char task)
-{
-  printDebug(String("Starting task ") + translateTask(task));
-  targetLeftRotationTicks = MAX_INT;
-  targetRightRotationTicks = MAX_INT;
-  hazardLights();
-
-  switch (task)
-  {
-    case CHOOSE_TASK:
-    {
-      resetTaskVariables(task, 1000, CHOOSE_TASK);
-      drive(STOP);
-    } break;
-
-    case DRIVE_FORWARDS_30: { // original: 1176 | 30
-      resetTaskVariables(task, 1120, UPDATE_SONAR); // 30 ticks => targetLeftRotationTicks = leftRotationTicks+30
-      drive(FORWARDS);
-    } break;
-    case DRIVE_BACKWARDS_30: { // original: 1176 | 30
-      resetTaskVariables(task, 1120, UPDATE_SONAR); // 30 ticks
-      drive(BACKWARDS);
-    } break;
-
-    case TURN_LEFT_90: { // original: 1263 | 8
-      resetTaskVariables(task, 1263, UPDATE_SONAR); // 8 ticks
-      drive(TURN_LEFT);
-    } break;
-    case TURN_RIGHT_90: { // original: 1263 | 8
-      resetTaskVariables(task, 1255, UPDATE_SONAR); // 8 ticks
-      drive(TURN_RIGHT);
-    } break;
-    case SHORT_LEFT_90: { // original: 1263 | 8
-      resetTaskVariables(task, 800, UPDATE_SONAR); // 8 ticks
-      drive(SHORT_LEFT);
-    } break;
-    case SHORT_RIGHT_90: { // original: 1263 | 8
-      resetTaskVariables(task, 800, UPDATE_SONAR); // 8 ticks
-      drive(SHORT_RIGHT);
-    } break;
-
-    case ROTATE_LEFT_180: { // original: 1336 | 8.5
-      resetTaskVariables(task, 800, UPDATE_SONAR); // 8.462 ticks
-      drive(ROTATE_LEFT);
-    } break;
-    case ROTATE_RIGHT_180: { // original: 1336 | 8.5
-      resetTaskVariables(task, 800, UPDATE_SONAR); // 8.462 ticks
-      drive(ROTATE_RIGHT);
-    } break;
-    case TURN_AROUND_LEFT: { // original: 1263 | 30
-      resetTaskVariables(task, 800, SHORT_LEFT_90); // TODO calculate
-      drive(SHORT_RIGHT_BACK);
-    } break;
-    case TURN_AROUND_RIGHT: { // original: 1263 | 30
-      resetTaskVariables(task, 800, SHORT_RIGHT_90); // TODO calculate
-      drive(SHORT_LEFT_BACK);
-    } break;
-
-    case UPDATE_SONAR:
-    {
-      resetSonar();
-      resetTaskVariables(task, 350, DRIVE_FORWARDS_2);
-      drive(STOP);
-    } break;
-    case DRIVE_FORWARDS_2:
-    {
-      resetTaskVariables(task, 79, UPDATE_SONAR_2);
-      drive(FORWARDS);
-    } break;
-    case UPDATE_SONAR_2:
-    {
-      resetTaskVariables(task, 350, CHOOSE_TASK);
-      drive(STOP);
-    } break;
-    
-    case ADJUST_ROTATION:
-    {
-      adjustRotation();
-      resetTaskVariables(task, 1000, CHOOSE_TASK);
-    } break;
-    case ADJUST_POSITION:
-    {
-
-    } break;
-
-    case PAUSE:
-    {
-      resetTaskVariables(task, 1000, CHOOSE_TASK);
-      drive(STOP);
-    } break;
-  }
-}
-
-void resetSonar()
-{
-  sonarUpdates = 0;
-  minDistanceLeft = SONAR_NO_READING;
-  minDistanceFront = SONAR_NO_READING;
-  minDistanceRight = SONAR_NO_READING;
-  maxDistanceLeft = 0;
-  maxDistanceFront = 0;
-  maxDistanceRight = 0;
-
-  for (int i = 0; i < MAX_SONAR_UPDATES; i++)
-  {
-    distancesLeft[i] = distancesFront[i] = distancesRight[i] = SONAR_NO_READING;
-  }
-}
-
-void adjustRotation()
-{
-  unsigned int lastTaskLeftRotationTicks = leftRotationTicks - prevLeftRotationTicks;
-  unsigned int lastTaskRightRotationTicks = rightRotationTicks - prevRightRotationTicks;
-
-  switch (currentTask)
-  {
-    case TURN_LEFT_90:
-    case SHORT_LEFT_90:
-    case ROTATE_LEFT_180:
-    {
-      lastTaskLeftRotationTicks += 17;
-    } break;
-    case TURN_RIGHT_90:
-    case SHORT_RIGHT_90:
-    case ROTATE_RIGHT_180:
-    {
-      lastTaskRightRotationTicks += 17;
-    } break;
-  }
-
-  if (lastTaskLeftRotationTicks > lastTaskRightRotationTicks + 1)
-  {
-    targetRightRotationTicks = rightRotationTicks + lastTaskLeftRotationTicks - lastTaskRightRotationTicks;
-    drive(SHORT_LEFT);
-    //TODO adjust speed variables depending on task
-    printDebug(String("Adjusting rotation left for ") + (targetRightRotationTicks - leftRotationTicks) + " ticks");
-  }
-  if (lastTaskRightRotationTicks > lastTaskLeftRotationTicks + 1)
-  {
-    targetLeftRotationTicks = leftRotationTicks + lastTaskRightRotationTicks - lastTaskLeftRotationTicks;
-    drive(SHORT_RIGHT);
-    //TODO adjust speed variables depending on task
-    printDebug(String("Adjusting rotation right for ") + (targetLeftRotationTicks - rightRotationTicks) + " ticks");
-  }
-}
-
-void adjustPosition()
-{
-
-}
-
-// we assume we're surrounded by 3 walls and not touching any wall
-void turnAround()
-{
-  if (distanceRight > distanceLeft)
-  {
-    if (maxDistanceLeft > 5)
-    {
-      startTask(TURN_AROUND_RIGHT);
-    }
-    else
-    {
-      startTask(ROTATE_RIGHT_180);
-    }
-  }
-  else
-  {
-    if (maxDistanceRight > 5)
-    {
-      startTask(TURN_AROUND_LEFT);
-    }
-    else
-    {
-      startTask(ROTATE_LEFT_180);
-    }
-  }
-}
-
-void checkLineSensorForFinish()
-{
-  updateLineSensor();
-
-  if (!allWhite)
-  {
-    finishFound = true;
-  }
-}
-
 
 
 /////////////////////////////
@@ -1002,17 +1200,16 @@ void checkLineSensorForFinish()
 
 void phase_returnToStart()
 {
-
-  programPhase = WAIT_FOR_SIGNAL;
+  programPhase = WAIT_FOR_SIGNAL_2;
 }
 
 
 
-/////////////////////////////
-// PHASE - WAIT_FOR_SIGNAL //
-/////////////////////////////
+///////////////////////////////
+// PHASE - WAIT_FOR_SIGNAL_2 //
+///////////////////////////////
 
-void phase_waitForSignal()
+void phase_waitForSignal2()
 {
   if (hasReceivedSignal())
   {
@@ -1046,6 +1243,7 @@ void phase_driveToSquare()
     delay(400);
     drive(FORWARDS);
     delay(100);
+    resetSonar();
     programPhase = FOLLOW_LINE_START;
     timr = currentTime;
   }
@@ -1098,17 +1296,14 @@ void phase_followLineStart()
     }
   }
 
-  resetSonar();
   updateSonar();
 
-  // if (distanceLeft < 30 && distanceFront < 40 && distanceRight < 30)
-  // {
-  //   programPhase = CONTINUE_MAZE;
-  // }
+  if (distanceLeft < 30 && distanceFront < 40 && distanceRight < 30)
+  {
+    programPhase = CONTINUE_MAZE;
+  }
   if (currentTime - timr > 3000)
   {
-    drive(FORWARDS);
-    delay(500);
     programPhase = CONTINUE_MAZE;
   }
 }
@@ -1155,28 +1350,34 @@ void phase_drivePath()
 
 void phase_continueMaze()
 {
-  checkLineSensorForFinish();
-  if (finishFound)
+  if (currentTime - continueMazePhaseStartTime > 5000)
   {
-    programPhase = FOLLOW_LINE_END;
-    return;
+    checkLineSensorForFinish();
+    if (finishFound)
+    {
+      programPhase = FOLLOW_LINE_END;
+      return;
+    }
   }
 
   switch (currentTask)
   {
     case CHOOSE_TASK:
     {
-      if (maxDistanceRight > 20)
+      // startTask(DRIVE_FORWARDS_30);
+      // break;
+
+      if (maxDistanceLeft > 15)
       {
-        startTask(TURN_RIGHT_90);
+        startTask(SIMPLE_LEFT_90);
       }
       else if (maxDistanceFront > 25)
       {
         startTask(DRIVE_FORWARDS_30);
       }
-      else if (maxDistanceLeft > 20)
+      else if (maxDistanceRight > 15)
       {
-        startTask(TURN_LEFT_90);
+        startTask(SIMPLE_RIGHT_90);
       }
       else
       {
@@ -1204,44 +1405,47 @@ void phase_followLineEnd()
   greenLights();
   updateLineSensor();
 
-  if (!allBlack)
+  if ((currentTime - timer) > 1000)
   {
-    if (!allWhite)
-    {
-      if (forwards == true)
+      if (!allBlack)
       {
-        drive(FORWARDS);
-      }
-      else if (turnRight == true)
-      {
-        drive(ADJUST_RIGHT);
-        lastValue = 1;
-      }
-      else if (turnLeft == true)
-      {
-        drive(ADJUST_LEFT);
-        lastValue = 2;
-      }
-    }
-    else
-    {
-      if (lastValue == 1)
-      {
-        drive(ADJUST_RIGHT_HARD);
+        if (!allWhite)
+        {
+          if (forwards == true)
+          {
+            drive(FORWARDS);
+          }
+          else if (turnRight == true)
+          {
+            drive(ADJUST_RIGHT);
+            lastValue = 1;
+          }
+          else if (turnLeft == true)
+          {
+            drive(ADJUST_LEFT);
+            lastValue = 2;
+          }
+        }
+        else
+        {
+          if (lastValue == 1)
+          {
+            drive(ADJUST_RIGHT_HARD);
+          }
+          else
+          {
+            drive(ADJUST_LEFT_HARD);
+          }
+        }
       }
       else
       {
-        drive(ADJUST_LEFT_HARD);
+        setGripper(GRIPPER_OPEN);
+        drive(STOP);
+        programPhase = FINISH;
       }
-    }
+    timer = currentTime;
   }
-  else
-  {
-    setGripper(GRIPPER_OPEN);
-    drive(STOP);
-    programPhase = FINISH;
-  }
-timer = currentTime;
 }
 
 
@@ -1268,15 +1472,31 @@ void printDebug(String message)
   #endif
 }
 
-void printDebug(const char* prefix, bool printDetails)
+void printDebug2(String message)
 {
-  #ifdef DEBUG
-    if (printDetails) Serial.println(String(prefix)
-        + "motor=(" + leftSpeed + "," + rightSpeed + "), "
-        + "sonar=(" + distanceLeft + ", " + distanceFront + ", " + distanceRight + "), "
-        + "rotations=(" + leftRotationTicks + ", " + rightRotationTicks + ")"
-        + "linesensor=(" + lineSensorValue[3] + ", " + lineSensorValue[4] + ")");
-    else Serial.println(prefix);  
+  #ifdef DEBUG2
+    Serial.println(String("[") + currentTime + "] " + message);
+  #endif
+}
+
+void printDebug3(String message)
+{
+  #ifdef DEBUG3
+    Serial.println(String("[") + currentTime + "] " + message);
+  #endif
+}
+
+void printDebug4(String message)
+{
+  #ifdef DEBUG4
+    Serial.println(String("[") + currentTime + "] " + message);
+  #endif
+}
+
+void printDebug5(String message)
+{
+  #ifdef DEBUG5
+    Serial.println(String("[") + currentTime + "] " + message);
   #endif
 }
 
@@ -1417,8 +1637,8 @@ void brakeLights()
 {
   pixels.setPixelColor(BACK_LEFT, pixels.Color(255, 0, 0));
   pixels.setPixelColor(BACK_RIGHT, pixels.Color(255, 0, 0));
-  pixels.setPixelColor(FORWARD_RIGHT, pixels.Color(255, 255, 255));
-  pixels.setPixelColor(FORWARD_LEFT, pixels.Color(255, 255, 255));
+  // pixels.setPixelColor(FORWARD_RIGHT, pixels.Color(255, 255, 255));
+  // pixels.setPixelColor(FORWARD_LEFT, pixels.Color(255, 255, 255));
   pixels.show();
 }
 
@@ -1514,21 +1734,24 @@ void discoLights()
   }
 }
 
+void lights(unsigned int red, unsigned int green, unsigned int blue)
+{
+  pixels.setPixelColor(BACK_LEFT, pixels.Color(red, green, blue));
+  pixels.setPixelColor(BACK_RIGHT, pixels.Color(red, green, blue));
+  pixels.setPixelColor(FORWARD_RIGHT, pixels.Color(red, green, blue));
+  pixels.setPixelColor(FORWARD_LEFT, pixels.Color(red, green, blue));
+  pixels.show();
+}
+
 void blueLights()
 {
-    pixels.setPixelColor(BACK_LEFT, pixels.Color(0, 0, 255));
-    pixels.setPixelColor(BACK_RIGHT, pixels.Color(0, 0, 255));
-    pixels.setPixelColor(FORWARD_RIGHT, pixels.Color(0, 0, 255));
-    pixels.setPixelColor(FORWARD_LEFT, pixels.Color(0, 0, 255));
-    pixels.show();
+  lights(0, 0, 255);
+  pixels.show();
 }
 
 
 void greenLights()
 {
-    pixels.setPixelColor(BACK_LEFT, pixels.Color(0, 255, 0));
-    pixels.setPixelColor(BACK_RIGHT, pixels.Color(0, 255, 0));
-    pixels.setPixelColor(FORWARD_RIGHT, pixels.Color(0, 255, 0));
-    pixels.setPixelColor(FORWARD_LEFT, pixels.Color(0, 255, 0));
-    pixels.show();
+  lights(0, 255, 0);
+  pixels.show();
 }
