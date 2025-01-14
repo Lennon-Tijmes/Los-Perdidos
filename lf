@@ -76,37 +76,26 @@ void loop() {
     }
   }
 
-  delay(50);  // Short delay before the next sensor read
+  delay(50);  
 }
 
 // Function to move both motors forward
 void moveForward() {
   analogWrite(MOTOR_LEFT_FWD, SPEED_LEFT);
   analogWrite(MOTOR_RIGHT_FWD, SPEED_RIGHT);
-  analogWrite(MOTOR_LEFT_BWD, 0);
-  analogWrite(MOTOR_RIGHT_BWD, 0);
+
 }
 
 // Function to turn left by adjusting motor speeds
 void turnLeft() {
-  analogWrite(MOTOR_LEFT_FWD, 0);  // Stop left motor
+   // Stop left motor
   analogWrite(MOTOR_RIGHT_FWD, TURN_SPEED_RIGHT);  // Speed up right motor
-  analogWrite(MOTOR_LEFT_BWD, 0);
-  analogWrite(MOTOR_RIGHT_BWD, 0);
+
 }
 
 // Function to turn right by adjusting motor speeds
 void turnRight() {
   analogWrite(MOTOR_LEFT_FWD, TURN_SPEED_LEFT);  // Speed up left motor
-  analogWrite(MOTOR_RIGHT_FWD, 0);  // Stop right motor
-  analogWrite(MOTOR_LEFT_BWD, 0);
-  analogWrite(MOTOR_RIGHT_BWD, 0);
-}
+ 
 
-// Function to stop both motors (not used anymore in this version)
-void stopMotors() {
-  analogWrite(MOTOR_LEFT_FWD, 0);
-  analogWrite(MOTOR_RIGHT_FWD, 0);
-  analogWrite(MOTOR_LEFT_BWD, 0);
-  analogWrite(MOTOR_RIGHT_BWD, 0);
 }
