@@ -1,0 +1,149 @@
+
+
+
+//#define motorStop
+
+// Motor speed definitions for object evasion
+#define SPEED_LEFT 200
+#define SPEED_RIGHT 220
+#define TURN_SPEED_LEFT 55
+#define TURN_SPEED_RIGHT 60
+
+#define MOTOR_LEFT_FWD 10
+#define MOTOR_LEFT_BWD 11
+#define MOTOR_RIGHT_FWD 9
+#define MOTOR_RIGHT_BWD 3
+
+// Sensor pins for ultrasonic
+#define TRIG_PIN 12   
+#define ECHO_PIN 13
+
+// Line following sensor array (assuming 8 sensors)
+const unsigned char TRACK_SENSORS[] = {A7, A6, A5, A4, A3, A2, A1, A0};  // 8 sensors
+int sensorReadings[8] = {0, 0, 0, 0, 0, 0, 0, 0};
+const unsigned int thresholdBlack = 800;  // Adjust for black line detection
+bool lastDirectionWasLeft = false;
+
+void setup() {
+  // Set motor direction pins as outputs
+  pinMode(MOTOR_LEFT_FWD, OUTPUT);
+  pinMode(MOTOR_LEFT_BWD, OUTPUT);
+  pinMode(MOTOR_RIGHT_FWD, OUTPUT);
+  pinMode(MOTOR_RIGHT_BWD, OUTPUT);
+
+  // Set ultrasonic sensor pins
+  pinMode(TRIG_PIN, OUTPUT);
+  pinMode(ECHO_PIN, INPUT);
+
+  // Start serial communication for debugging
+  Serial.begin(9600); 
+}
+
+void loop() {
+  long duration, distance;
+  
+  // Measure distance from the ultrasonic sensor
+  digitalWrite(TRIG_PIN, LOW);
+  delayMicroseconds(2);  // Ensure trigger is off
+  digitalWrite(TRIG_PIN, HIGH);
+  delayMicroseconds(10);  // Send a 10µs pulse
+  digitalWrite(TRIG_PIN, LOW);
+  duration = pulseIn(ECHO_PIN, HIGH);  // Measure pulse duration
+  distance = duration * 0.034 / 2;     // Calculate distance in cm
+  
+  // Debugging output
+  //Serial.print("Distance: ");
+  //Serial.print(distance);
+  //Serial.println(" cm");
+
+  // If an object is detected within 20 cm, evade
+  if (distance > 0 && distance <= 20) {
+    evadeObstacle();  // Temporarily evade obstacle
+  } else {
+    followLine();  // Follow the line when no obstacle is detected
+  }
+
+  delay(50);  // Small delay to stabilize readings
+}
+
+// Line following function (using your original logic with 50ms delay)
+void followLine() {
+  for (int i = 0; i < 8; i++) {
+    sensorReadings[i] = analogRead(TRACK_SENSORS[i]);  // Read analog values from the sensors
+  }
+
+  // Check the position of the line
+  int leftCount = 0;
+  int rightCount = 0;
+
+  for (int i = 0; i < 4; i++) {  // Check left side sensors (0-3)
+    if (sensorReadings[i] > thresholdBlack) {
+      leftCount++;
+    }
+  }
+
+  for (int i = 4; i < 8; i++) {  // Check right side sensors (4-7)
+    if (sensorReadings[i] > thresholdBlack) {
+      rightCount++;
+    }
+  }
+
+  // If both left and right sides detect the line, move forward
+  if (leftCount > 0 && rightCount > 0) {
+    moveForward();
+  }
+  // If left side detects the line more, turn left
+  else if (leftCount > 0) {
+    turnLeft();
+    lastDirectionWasLeft = true;  // Remember the last direction
+  }
+  // If right side detects the line more, turn right
+  else if (rightCount > 0) {
+    turnRight();
+    lastDirectionWasLeft = false;  // Remember the last direction
+  }
+  // If no sensors detect the line, continue turning in the last known direction
+  else {
+    if (lastDirectionWasLeft) {
+      turnLeft();  // Continue turning left
+    } else {
+      turnRight();  // Continue turning right
+    }
+  }
+
+  delay(50);  // Short delay before the next sensor read
+}
+
+// Object evasion function
+void evadeObstacle() {
+  
+ /// Turn right to evade
+  turnRight();
+  delay(1300);
+  moveForward();
+  delay(200);
+   turnLeft();
+  delay(1000);
+  moveForward();
+  delay(1000);
+  turnLeft();
+  delay(1000);
+  turnRight();
+  delay(1300);
+  moveForward();
+  delay(200);
+}
+
+
+
+void moveForward() {
+  analogWrite(MOTOR_LEFT_FWD, SPEED_LEFT);
+  analogWrite(MOTOR_RIGHT_FWD, SPEED_RIGHT);
+}
+
+void turnLeft() {
+  analogWrite(MOTOR_RIGHT_FWD, TURN_SPEED_RIGHT);  
+}
+
+void turnRight() {
+  analogWrite(MOTOR_LEFT_FWD, TURN_SPEED_LEFT);  
