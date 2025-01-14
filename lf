@@ -1,5 +1,3 @@
-#include <Arduino.h>
-
 // Motor Pins
 #define MOTOR_LEFT_FWD 10
 #define MOTOR_LEFT_BWD 11
@@ -11,98 +9,104 @@ const unsigned char TRACK_SENSORS[] = {A7, A6, A5, A4, A3, A2, A1, A0};  // 8 se
 int sensorReadings[8] = {0, 0, 0, 0, 0, 0, 0, 0};
 
 // Threshold for detecting black
-const unsigned int thresholdBlack = 800;  // Adjust based on sensor calibration
+const unsigned int thresholdBlack = 800;  
 
 // Motor Speeds
 #define SPEED_LEFT 180
 #define SPEED_RIGHT 200
 #define TURN_SPEED_LEFT 70
 #define TURN_SPEED_RIGHT 80
-#define STOP_SPEED 0
 
-void initializeHardware() {
+// Variable to remember the last direction the robot lost the line
+bool lastDirectionWasLeft = false;
+
+void setup() {
+  // Set motor pins as outputs
   pinMode(MOTOR_LEFT_FWD, OUTPUT);
   pinMode(MOTOR_LEFT_BWD, OUTPUT);
   pinMode(MOTOR_RIGHT_FWD, OUTPUT);
   pinMode(MOTOR_RIGHT_BWD, OUTPUT);
 
+  // Start serial communication for debugging
   Serial.begin(9600);
-  for (char i = 0; i < 8; i++) {
-    pinMode(TRACK_SENSORS[i], INPUT);
-  }
-}
-
-void readTrackSensors();
-void moveStraight();
-void gentleTurnLeft();
-void gentleTurnRight();
-void stopMotors();
-
-void setup() {
-  initializeHardware();
 }
 
 void loop() {
-  readTrackSensors();
+  // Read sensor values
+  for (int i = 0; i < 8; i++) {
+    sensorReadings[i] = analogRead(TRACK_SENSORS[i]);  // Read analog values from the sensors
+  }
 
-  bool midSensorsDetectLine = sensorReadings[2] < thresholdBlack || sensorReadings[3] < thresholdBlack ||
-                              sensorReadings[4] < thresholdBlack || sensorReadings[5] < thresholdBlack;
+  // Check the position of the line
+  int leftCount = 0;
+  int rightCount = 0;
 
-  bool leftSensorsDetectLine = sensorReadings[0] < thresholdBlack && sensorReadings[1] < thresholdBlack;
-  bool rightSensorsDetectLine = sensorReadings[6] < thresholdBlack && sensorReadings[7] < thresholdBlack;
-
-  // Ensure continuous operation without full stop
-  if (midSensorsDetectLine) {
-    if (leftSensorsDetectLine) {
-      gentleTurnLeft();
-    } else if (rightSensorsDetectLine) {
-      gentleTurnRight();
-    } else {
-      moveStraight();
+  for (int i = 0; i < 4; i++) {  // Check left side sensors (0-3)
+    if (sensorReadings[i] > thresholdBlack) {
+      leftCount++;
     }
-  } else {
-    moveStraight();  // Continue moving if no clear line detection
   }
+
+  for (int i = 4; i < 8; i++) {  // Check right side sensors (4-7)
+    if (sensorReadings[i] > thresholdBlack) {
+      rightCount++;
+    }
+  }
+
+  // If both left and right sides detect the line, move forward
+  if (leftCount > 0 && rightCount > 0) {
+    moveForward();
+  }
+  // If left side detects the line more, turn left
+  else if (leftCount > 0) {
+    turnLeft();
+    lastDirectionWasLeft = true;  // Remember the last direction
+  }
+  // If right side detects the line more, turn right
+  else if (rightCount > 0) {
+    turnRight();
+    lastDirectionWasLeft = false;  // Remember the last direction
+  }
+  // If no sensors detect the line, continue turning in the last known direction
+  else {
+    if (lastDirectionWasLeft) {
+      turnLeft();  // Continue turning left
+    } else {
+      turnRight();  // Continue turning right
+    }
+  }
+
+  delay(50);  // Short delay before the next sensor read
 }
 
-void readTrackSensors() {
-  for (unsigned char i = 0; i < 8; i++) {
-    sensorReadings[i] = analogRead(TRACK_SENSORS[i]);
-  }
-
-  // Debugging output
-  Serial.print("Sensor Values: ");
-  for (unsigned char i = 0; i < 8; i++) {
-    Serial.print(sensorReadings[i]);
-    Serial.print(" ");
-  }
-  Serial.println();
-}
-
-void moveStraight() {
+// Function to move both motors forward
+void moveForward() {
   analogWrite(MOTOR_LEFT_FWD, SPEED_LEFT);
-  analogWrite(MOTOR_LEFT_BWD, 0);
   analogWrite(MOTOR_RIGHT_FWD, SPEED_RIGHT);
-  analogWrite(MOTOR_RIGHT_BWD, 0);
-}
-
-void gentleTurnLeft() {
-  analogWrite(MOTOR_LEFT_FWD, TURN_SPEED_LEFT);
   analogWrite(MOTOR_LEFT_BWD, 0);
-  analogWrite(MOTOR_RIGHT_FWD, SPEED_RIGHT);
   analogWrite(MOTOR_RIGHT_BWD, 0);
 }
 
-void gentleTurnRight() {
-  analogWrite(MOTOR_LEFT_FWD, SPEED_LEFT);
+// Function to turn left by adjusting motor speeds
+void turnLeft() {
+  analogWrite(MOTOR_LEFT_FWD, 0);  // Stop left motor
+  analogWrite(MOTOR_RIGHT_FWD, TURN_SPEED_RIGHT);  // Speed up right motor
   analogWrite(MOTOR_LEFT_BWD, 0);
-  analogWrite(MOTOR_RIGHT_FWD, TURN_SPEED_RIGHT);
   analogWrite(MOTOR_RIGHT_BWD, 0);
 }
 
+// Function to turn right by adjusting motor speeds
+void turnRight() {
+  analogWrite(MOTOR_LEFT_FWD, TURN_SPEED_LEFT);  // Speed up left motor
+  analogWrite(MOTOR_RIGHT_FWD, 0);  // Stop right motor
+  analogWrite(MOTOR_LEFT_BWD, 0);
+  analogWrite(MOTOR_RIGHT_BWD, 0);
+}
+
+// Function to stop both motors (not used anymore in this version)
 void stopMotors() {
-  analogWrite(MOTOR_LEFT_FWD, STOP_SPEED);
-  analogWrite(MOTOR_LEFT_BWD, STOP_SPEED);
-  analogWrite(MOTOR_RIGHT_FWD, STOP_SPEED);
-  analogWrite(MOTOR_RIGHT_BWD, STOP_SPEED);
+  analogWrite(MOTOR_LEFT_FWD, 0);
+  analogWrite(MOTOR_RIGHT_FWD, 0);
+  analogWrite(MOTOR_LEFT_BWD, 0);
+  analogWrite(MOTOR_RIGHT_BWD, 0);
 }
