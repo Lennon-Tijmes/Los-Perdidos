@@ -19,7 +19,7 @@
 // #define DEBUG4 1
 // #define DEBUG5 1
 // #define START_AT_MAZE 1
-// #define WAIT_FOR_SIGNAL 1
+#define WAIT_FOR_SIGNAL 1
 #define NEW_INTERRUPTS_HANDLING 1
 #define STARTUP_DELAY 2000
 
