@@ -1,0 +1,120 @@
+#include <Arduino.h>
+
+// Motor Pins
+#define MOTOR_LEFT_FWD 10
+#define MOTOR_LEFT_BWD 11
+#define MOTOR_RIGHT_FWD 9
+#define MOTOR_RIGHT_BWD 3
+
+// Sensor Pins
+const unsigned char TRACK_SENSORS[] = {A7, A6, A5, A4, A3, A2, A1, A0};  // 8 sensors
+int sensorReadings[8] = {0, 0, 0, 0, 0, 0, 0, 0};
+
+// Threshold for detecting black
+const unsigned int thresholdBlack = 800;  // Adjust based on sensor calibration
+
+// Motor Speeds
+#define SPEED_LEFT 180
+#define SPEED_RIGHT 200
+#define TURN_SPEED_LEFT 70
+#define TURN_SPEED_RIGHT 80
+#define STOP_SPEED 0
+
+void initializeHardware() {
+  pinMode(MOTOR_LEFT_FWD, OUTPUT);
+  pinMode(MOTOR_LEFT_BWD, OUTPUT);
+  pinMode(MOTOR_RIGHT_FWD, OUTPUT);
+  pinMode(MOTOR_RIGHT_BWD, OUTPUT);
+
+  Serial.begin(9600);
+  for (char i = 0; i < 8; i++) {
+    pinMode(TRACK_SENSORS[i], INPUT);
+  }
+}
+
+void readTrackSensors();
+void moveStraight();
+void gentleTurnLeft();
+void gentleTurnRight();
+void stopMotors();
+
+void setup() {
+  initializeHardware();
+}
+
+void loop() {
+  readTrackSensors();
+
+  bool midSensorsDetectLine = sensorReadings[2] < thresholdBlack || sensorReadings[3] < thresholdBlack ||
+                              sensorReadings[4] < thresholdBlack || sensorReadings[5] < thresholdBlack;
+
+  bool leftSensorsDetectLine = sensorReadings[0] < thresholdBlack && sensorReadings[1] < thresholdBlack;
+  bool rightSensorsDetectLine = sensorReadings[6] < thresholdBlack && sensorReadings[7] < thresholdBlack;
+
+  bool allSensorsSeeWhite = true;
+  for (int i = 0; i < 8; i++) {
+    if (sensorReadings[i] < thresholdBlack) {
+      allSensorsSeeWhite = false;
+      break;
+    }
+  }
+
+  if (allSensorsSeeWhite) {
+    stopMotors();
+    while (true);  // Fully stop when all sensors detect white
+  }
+
+  if (midSensorsDetectLine) {
+    if (leftSensorsDetectLine) {
+      gentleTurnLeft();
+    } else if (rightSensorsDetectLine) {
+      gentleTurnRight();
+    } else {
+      moveStraight();
+    }
+  } else {
+    stopMotors();
+  }
+}
+
+void readTrackSensors() {
+  for (unsigned char i = 0; i < 8; i++) {
+    sensorReadings[i] = analogRead(TRACK_SENSORS[i]);
+  }
+
+  // Debugging output
+  Serial.print("Sensor Values: ");
+  for (unsigned char i = 0; i < 8; i++) {
+    Serial.print(sensorReadings[i]);
+    Serial.print(" ");
+  }
+  Serial.println();
+}
+
+void moveStraight() {
+  analogWrite(MOTOR_LEFT_FWD, SPEED_LEFT);
+  analogWrite(MOTOR_LEFT_BWD, 0);
+  analogWrite(MOTOR_RIGHT_FWD, SPEED_RIGHT);
+  analogWrite(MOTOR_RIGHT_BWD, 0);
+}
+
+void gentleTurnLeft() {
+  analogWrite(MOTOR_LEFT_FWD, TURN_SPEED_LEFT);
+  analogWrite(MOTOR_LEFT_BWD, 0);
+  analogWrite(MOTOR_RIGHT_FWD, SPEED_RIGHT);
+  analogWrite(MOTOR_RIGHT_BWD, 0);
+}
+
+void gentleTurnRight() {
+  analogWrite(MOTOR_LEFT_FWD, SPEED_LEFT);
+  analogWrite(MOTOR_LEFT_BWD, 0);
+  analogWrite(MOTOR_RIGHT_FWD, TURN_SPEED_RIGHT);
+  analogWrite(MOTOR_RIGHT_BWD, 0);
+}
+
+void stopMotors() {
+  analogWrite(MOTOR_LEFT_FWD, STOP_SPEED);
+  analogWrite(MOTOR_LEFT_BWD, STOP_SPEED);
+  analogWrite(MOTOR_RIGHT_FWD, STOP_SPEED);
+  analogWrite(MOTOR_RIGHT_BWD, STOP_SPEED);
+}
