@@ -9,13 +9,15 @@ const unsigned char TRACK_SENSORS[] = {A7, A6, A5, A4, A3, A2, A1, A0};  // 8 se
 int sensorReadings[8] = {0, 0, 0, 0, 0, 0, 0, 0};
 
 // Threshold for detecting black
-const unsigned int thresholdBlack = 800;  
+const unsigned int thresholdBlack =
+
+ 800;  // Adjust based on sensor calibration
 
 // Motor Speeds
-#define SPEED_LEFT 180
-#define SPEED_RIGHT 200
-#define TURN_SPEED_LEFT 70
-#define TURN_SPEED_RIGHT 80
+#define SPEED_LEFT 200
+#define SPEED_RIGHT 220
+#define TURN_SPEED_LEFT 65
+#define TURN_SPEED_RIGHT 70
 
 // Variable to remember the last direction the robot lost the line
 bool lastDirectionWasLeft = false;
@@ -76,7 +78,7 @@ void loop() {
     }
   }
 
-  delay(50);  
+  delay(50);  // Short delay before the next sensor read
 }
 
 // Function to move both motors forward
@@ -99,3 +101,4 @@ void turnRight() {
  
 
 }
+
