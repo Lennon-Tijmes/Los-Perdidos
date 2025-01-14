@@ -18,8 +18,8 @@
 // #define DEBUG3 1
 // #define DEBUG4 1
 // #define DEBUG5 1
-#define START_AT_MAZE 1
-#define WAIT_FOR_SIGNAL 1
+// #define START_AT_MAZE 1
+// #define WAIT_FOR_SIGNAL 1
 #define NEW_INTERRUPTS_HANDLING 1
 #define STARTUP_DELAY 2000
 
@@ -547,7 +547,7 @@ bool startupDelay()
 void phase_waitForSignal()
 {
 #ifndef WAIT_FOR_SIGNAL
-  changePhase(SPHASE_DRIVE_TO_SQUARE);
+  changePhase(PHASE_DRIVE_TO_SQUARE);
   return;
 #endif
 
@@ -591,6 +591,7 @@ void phase_driveToSquare()
 {
   while (!allBlack)
   {
+    updateLineSensor();
     drive(FORWARDS);
     delay(130);
   }
@@ -601,7 +602,7 @@ void phase_driveToSquare()
   {
     drive(FORWARDS);
     delay(100);
-    setGripper(GRIPPER_CLOSED);
+    setGripper_old(GRIPPER_CLOSED);
     drive(ROTATE_LEFT);
     delay(460);
     drive(FORWARDS);
@@ -685,14 +686,14 @@ void phase_driveMaze()
   previousTask = lastMode;
 
   // check for finish line
-  if (millis() - programPhaseStartTime > CHECK_FINISH_LINE_DELAY_MS)
-  {
-    if (!allWhite)
-    {
-      changePhase(PHASE_FOLLOW_LINE_END);
-      return;
-    }
-  }
+  // if (millis() - programPhaseStartTime > CHECK_FINISH_LINE_DELAY_MS)
+  // {
+  //   if (!allWhite)
+  //   {
+  //     changePhase(PHASE_FOLLOW_LINE_END);
+  //     return;
+  //   }
+  // }
 
   // If a task is ongoing, let it continue
   if (millis() < activeTaskTimer) return;
@@ -705,15 +706,15 @@ void phase_driveMaze()
     return;
   }
 
-  // robot AI
+   // robot AI
   if (distanceFront < 10)
     if (distanceLeft < 15 && distanceRight < 15) turnAround();
     else doTask(BACKWARDS, 150);
   else if (distanceLeft > 25) doTask(LEFT, 100);
   else if (distanceFront > 25) drive(FORWARDS);
   else if (distanceRight > 20) doTask(RIGHT, 100);
-  else if (distanceLeft < 5) doTask(RIGHT, 100);
-  else if (distanceRight < 5) doTask(LEFT, 100);
+  else if (distanceLeft < 4) doTask(RIGHT, 100);
+  else if (distanceRight < 4) doTask(LEFT, 100);
   else if (distanceFront > 10) drive(FORWARDS);
   else turnAround();
 
@@ -730,6 +731,7 @@ void phase_driveMaze()
   if (lastMode != previousTask)
     if (lastMode == FORWARDS && previousTask == BACKWARDS || lastMode == BACKWARDS && previousTask == FORWARDS) stuckCounter++;
     else stuckCounter = 0;
+  else if (lastMode == ROTATE_RIGHT || lastMode == ROTATE_LEFT) doTask(FORWARDS, 100);
   if (stuckCounter > 6) doTask(LEFT, 100);
 }
 
@@ -742,10 +744,10 @@ void doTask(unsigned char task, unsigned long duration)
 void turnAround()
 {
   if (distanceRight > distanceLeft)
-    if (distanceLeft > 5) doTask(ROTATE_RIGHT, 750);
+    if (distanceLeft > 4) doTask(ROTATE_RIGHT, 750);
     else doTask(ROTATE_RIGHT, 750);
   else
-    if (distanceRight > 5) doTask(ROTATE_LEFT, 750);
+    if (distanceRight > 4) doTask(ROTATE_LEFT, 750);
     else doTask(ROTATE_LEFT, 750);
 }
 
@@ -764,6 +766,7 @@ void phase_followLineEnd()
 {
   static unsigned long timer = millis();
   static unsigned char lastDirection = LEFT;
+  lights(WHITE);
 
   updateLineSensor();
   bool turnLeft = (lineSensorValue[0] > colorBlack) || (lineSensorValue[1] > colorBlack);
