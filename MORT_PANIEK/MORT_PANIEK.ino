@@ -278,6 +278,7 @@ const double microsecondsToCentimeters = 0.017;  // 340m/s = 34000cm/s = 34cm/ms
 double distanceLeft = SONAR_NO_READING;
 double distanceFront = SONAR_NO_READING;
 double distanceRight = SONAR_NO_READING;
+bool sonarsStuck = false;
 
 void updateSonar()
 {
@@ -393,6 +394,7 @@ void updateSonar()
       break;
 
     case SONAR_UPDATE_DISTANCES:
+      sonarsStuck = distanceLeft == currentDistanceLeft && distanceFront == currentDistanceFront && distanceRight == currentDistanceRight;
       distanceLeft = currentDistanceLeft;
       distanceFront = currentDistanceFront;
       distanceRight = currentDistanceRight;
@@ -676,17 +678,11 @@ void phase_driveMaze()
   static unsigned char previousTask = STOP;
   previousTask = lastMode;
 
-  // check for finish line (or dont cause it breaks robot)
-  // if (millis() - programPhaseStartTime > CHECK_FINISH_LINE_DELAY_MS)
-  // {
-  //   if (!allWhite)
-  //   {
-  //     if (finishLineCounter++ > 100) {
-  //       changePhase(PHASE_FOLLOW_LINE_END);
-  //       return;
-  //     }
-  //   }
-  // }
+  if (sonarsStuck)
+  {
+    doTask(BACKWARDS, 100);
+    sonarsStuck = false;
+  }
 
   // If a task is ongoing, let it continue
   if (millis() < activeTaskTimer) return;
@@ -731,7 +727,6 @@ void phase_driveMaze()
   if (lastMode != previousTask)
     if (lastMode == FORWARDS && previousTask == BACKWARDS || lastMode == BACKWARDS && previousTask == FORWARDS) stuckCounter++;
     else stuckCounter = 0;
-  else if (lastMode == ROTATE_RIGHT || lastMode == ROTATE_LEFT) doTask(FORWARDS, 100);
   if (stuckCounter > 6) doTask(LEFT, 100);
 }
 
@@ -768,8 +763,8 @@ void phase_followLineEnd()
   static unsigned char lastDirection = LEFT;
 
   updateLineSensor();
-  bool turnLeft = (lineSensorValue[0] > colorBlack) || (lineSensorValue[1] > colorBlack);
-  bool forwards = (lineSensorValue[2] > colorBlack) || (lineSensorValue[3] > colorBlack);
+  bool turnLeft =  (lineSensorValue[0] > colorBlack) || (lineSensorValue[1] > colorBlack);
+  bool forwards =  (lineSensorValue[2] > colorBlack) || (lineSensorValue[3] > colorBlack);
   bool turnRight = (lineSensorValue[4] > colorBlack) || (lineSensorValue[5] > colorBlack);
 
   if (millis() - timer > 500)
@@ -835,37 +830,37 @@ void phase_finish()
 
 void printDebug(String message)
 {
-#ifdef DEBUG
-  Serial.println(String("[") + millis() + "] " + message);
-#endif
+  #ifdef DEBUG
+    Serial.println(String("[") + millis() + "] " + message);
+  #endif
 }
 
 void printDebug2(String message)
 {
-#ifdef DEBUG2
-  Serial.println(String("[") + millis() + "] " + message);
-#endif
+  #ifdef DEBUG2
+    Serial.println(String("[") + millis() + "] " + message);
+  #endif
 }
 
 void printDebug3(String message)
 {
-#ifdef DEBUG3
-  Serial.println(String("[") + millis() + "] " + message);
-#endif
+  #ifdef DEBUG3
+    Serial.println(String("[") + millis() + "] " + message);
+  #endif
 }
 
 void printDebug4(String message)
 {
-#ifdef DEBUG4
-  Serial.println(String("[") + millis() + "] " + message);
-#endif
+  #ifdef DEBUG4
+    Serial.println(String("[") + millis() + "] " + message);
+  #endif
 }
 
 void printDebug5(String message)
 {
-#ifdef DEBUG5
-  Serial.println(String("[") + millis() + "] " + message);
-#endif
+  #ifdef DEBUG5
+    Serial.println(String("[") + millis() + "] " + message);
+  #endif
 }
 
 
