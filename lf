@@ -16,8 +16,8 @@ const unsigned int thresholdBlack =
 // Motor Speeds
 #define SPEED_LEFT 200
 #define SPEED_RIGHT 220
-#define TURN_SPEED_LEFT 65
-#define TURN_SPEED_RIGHT 70
+#define TURN_SPEED_LEFT 55
+#define TURN_SPEED_RIGHT 60
 
 // Variable to remember the last direction the robot lost the line
 bool lastDirectionWasLeft = false;
