@@ -43,31 +43,33 @@ const unsigned char LINE_SENSOR_PINS[] = { A2, A3, A4, A5, A6, A7 };
 #define PIXELS_PIN 11
 
 // Phase
-#define PHASE_STARTUP_WAIT 100       // wait a bit just in case
-#define PHASE_WAIT_FOR_SIGNAL 101    // wait for start signal
-#define PHASE_DRIVE_TO_SQUARE 102    // drive forward till black square, grab the pin and turn left
+#define PHASE_STARTUP_WAIT      100       // wait a bit just in case
+#define PHASE_WAIT_FOR_SIGNAL   101    // wait for start signal
+#define PHASE_DRIVE_TO_SQUARE   102    // drive forward till black square, grab the pin and turn left
 #define PHASE_FOLLOW_LINE_START 103  // follow the line until inside of the maze
-#define PHASE_DRIVE_MAZE 104         // solve the maze
-#define PHASE_FOLLOW_LINE_END 105    // follow the finishing line and put pin inside black square
-#define PHASE_FINISH 106             // stop driving
+#define PHASE_DRIVE_MAZE        104         // solve the maze
+#define PHASE_FOLLOW_LINE_END   105    // follow the finishing line and put pin inside black square
+#define PHASE_FINISH            106             // stop driving
 unsigned char programPhase;
 unsigned long programPhaseStartTime;
 unsigned long programStartTime;
 
 // Motors
-#define STOP 200
-#define FORWARDS 201
-#define BACKWARDS 202
-#define LEFT 203
-#define RIGHT 204
-#define LEFT_BACK 205
-#define RIGHT_BACK 206
-#define ROTATE_LEFT 207
-#define ROTATE_RIGHT 208
-#define ADJUST_LEFT 209
-#define ADJUST_RIGHT 210
-#define ADJUST_LEFT_HARD 211
-#define ADJUST_RIGHT_HARD 212
+#define STOP              200
+#define FORWARDS          201
+#define BACKWARDS         202
+#define SMOOTH_LEFT       203
+#define SMOOTH_RIGHT      204
+#define LEFT              205
+#define RIGHT             206
+#define LEFT_BACK         207
+#define RIGHT_BACK        208
+#define ROTATE_LEFT       209
+#define ROTATE_RIGHT      210
+#define ADJUST_LEFT       211
+#define ADJUST_RIGHT      212
+#define ADJUST_LEFT_HARD  213
+#define ADJUST_RIGHT_HARD 214
 int leftSpeed = 250;
 int rightSpeed = 255;
 
@@ -89,13 +91,13 @@ unsigned int colorWhite = 799;
 #define NUM_PIXELS 4            // number of neopixels
 Adafruit_NeoPixel pixels(NUM_PIXELS, PIXELS_PIN, NEO_RGB + NEO_KHZ800);
 
-#define OFF 300
-#define WHITE 301
-#define RED 302
+#define OFF    300
+#define WHITE  301
+#define RED    302
 #define ORANGE 303
 #define YELLOW 304
-#define GREEN 305
-#define BLUE 306
+#define GREEN  305
+#define BLUE   306
 #define PURPLE 307
 
 #define LED_BACK_LEFT 0
@@ -372,35 +374,29 @@ void updateSonar()
 
     // Get HIGH state duration from ECHO pin, or move to next phase if no signal after SONAR_RECEIVER_TIMEOUT_MS milliseconds
     case SONAR_RIGHT_READ_SIGNAL:
-     
-     {
-        sonarSignalDuration = pulseIn(SONAR_RIGHT_ECHO_PIN, HIGH);
-        if (sonarSignalDuration > 0)
-        {
-          if (sonarSignalDuration > 12353) currentDistanceRight = SONAR_TOO_FAR;  // if more than 210cm
-          else currentDistanceRight = (double)sonarSignalDuration * microsecondsToCentimeters;
+      sonarSignalDuration = pulseIn(SONAR_RIGHT_ECHO_PIN, HIGH);
+      if (sonarSignalDuration > 0)
+      {
+        if (sonarSignalDuration > 12353) currentDistanceRight = SONAR_TOO_FAR;  // if more than 210cm
+        else currentDistanceRight = (double)sonarSignalDuration * microsecondsToCentimeters;
 
-          sonarSignalDuration = 0;
-          sonarLastActionTime = millis();
-          sonarPhase = SONAR_UPDATE_DISTANCES;
-        }
-        else if (millis() - sonarLastActionTime > SONAR_RECEIVER_TIMEOUT_MS)
-        {
-          currentDistanceRight = SONAR_NO_READING;
-          sonarLastActionTime = millis();
-          sonarPhase = SONAR_UPDATE_DISTANCES;
-        }
+        sonarSignalDuration = 0;
+        sonarLastActionTime = millis();
+        sonarPhase = SONAR_UPDATE_DISTANCES;
+      }
+      else if (millis() - sonarLastActionTime > SONAR_RECEIVER_TIMEOUT_MS)
+      {
+        currentDistanceRight = SONAR_NO_READING;
+        sonarLastActionTime = millis();
+        sonarPhase = SONAR_UPDATE_DISTANCES;
       }
       break;
 
     case SONAR_UPDATE_DISTANCES:
-     
-     {
-        distanceLeft = currentDistanceLeft;
-        distanceFront = currentDistanceFront;
-        distanceRight = currentDistanceRight;
-        sonarPhase = SONAR_LEFT_SEND_SIGNAL;
-      }
+      distanceLeft = currentDistanceLeft;
+      distanceFront = currentDistanceFront;
+      distanceRight = currentDistanceRight;
+      sonarPhase = SONAR_LEFT_SEND_SIGNAL;
       break;
   }
 }
@@ -460,6 +456,8 @@ void drive(unsigned char mode)
     case FORWARDS: setMotors(leftSpeed, rightSpeed); break;
     case BACKWARDS: setMotors(-leftSpeed, -rightSpeed); break;
 
+    case SMOOTH_LEFT: setMotors(150, rightSpeed); break;
+    case SMOOTH_RIGHT: setMotors(leftSpeed, 150); break;
     case LEFT: setMotors(100, rightSpeed); break;
     case RIGHT: setMotors(leftSpeed, 100); break;
     case LEFT_BACK: setMotors(-100, -rightSpeed); break;
@@ -483,8 +481,8 @@ void drive(unsigned char mode)
 // GRIPPER //
 /////////////
 
-#define GRIPPER_OPEN 1600    // Value for gripper being open
-#define GRIPPER_CLOSED 1010  // Value for gripper being closed
+#define GRIPPER_OPEN 1600   // Value for gripper being open
+#define GRIPPER_CLOSED 1010 // Value for gripper being closed
 unsigned long gripperState = GRIPPER_CLOSED;
 
 // Sets the gripper position to the given pulse
@@ -526,11 +524,11 @@ void phase_startupWait()
 {
   if (startupDelay())
   {
-#ifdef START_AT_MAZE
-    changePhase(PHASE_DRIVE_MAZE);
-#else
-    changePhase(PHASE_WAIT_FOR_SIGNAL);
-#endif
+    #ifdef START_AT_MAZE
+      changePhase(PHASE_DRIVE_MAZE);
+    #else
+      changePhase(PHASE_WAIT_FOR_SIGNAL);
+    #endif
   }
 }
 bool startupDelay()
@@ -546,10 +544,10 @@ bool startupDelay()
 
 void phase_waitForSignal()
 {
-#ifndef WAIT_FOR_SIGNAL
-  changePhase(PHASE_DRIVE_TO_SQUARE);
-  return;
-#endif
+  #ifndef WAIT_FOR_SIGNAL
+    changePhase(PHASE_DRIVE_TO_SQUARE);
+    return;
+  #endif
 
   if (hasReceivedSignal())
   {
@@ -622,21 +620,13 @@ void phase_followLineStart()
   static unsigned char lastDirection = STOP;
 
   updateLineSensor();
-  bool turnLeft = (lineSensorValue[0] >= colorBlack) || (lineSensorValue[1] >= colorBlack);
+  bool turnLeft =   (lineSensorValue[0] >= colorBlack) || (lineSensorValue[1] >= colorBlack);
   bool goForwards = (lineSensorValue[2] >= colorBlack) || (lineSensorValue[3] >= colorBlack);
-  bool turnRight = (lineSensorValue[4] >= colorBlack) || (lineSensorValue[5] >= colorBlack);
+  bool turnRight =  (lineSensorValue[4] >= colorBlack) || (lineSensorValue[5] >= colorBlack);
 
   if (allWhite)
-  {
-    if (lastDirection == LEFT)
-    {
-      drive(ADJUST_LEFT);
-    }
-    else
-    {
-      drive(ADJUST_RIGHT);
-    }
-  }
+    if (lastDirection == LEFT) drive(ADJUST_LEFT);
+    else drive(ADJUST_RIGHT);
   else
   {
     if (goForwards)
@@ -679,19 +669,22 @@ unsigned long activeTaskTimer = millis();
 
 void phase_driveMaze()
 {
+  static unsigned char finishLineCounter = 0;
   static unsigned long stuckTimer = millis();
   static unsigned int stuckRotations = 0;
   static unsigned char stuckCounter = 0;
   static unsigned char previousTask = STOP;
   previousTask = lastMode;
 
-  // check for finish line
+  // check for finish line (or dont cause it breaks robot)
   // if (millis() - programPhaseStartTime > CHECK_FINISH_LINE_DELAY_MS)
   // {
   //   if (!allWhite)
   //   {
-  //     changePhase(PHASE_FOLLOW_LINE_END);
-  //     return;
+  //     if (finishLineCounter++ > 100) {
+  //       changePhase(PHASE_FOLLOW_LINE_END);
+  //       return;
+  //     }
   //   }
   // }
 
@@ -706,13 +699,20 @@ void phase_driveMaze()
     return;
   }
 
-   // robot AI
+  if (distanceLeft == SONAR_TOO_FAR && distanceRight == SONAR_TOO_FAR)
+  {
+    doTask(STOP, 100);
+    hazardLights(PURPLE);
+    return;
+  }
+
+  // robot AI
   if (distanceFront < 10)
     if (distanceLeft < 15 && distanceRight < 15) turnAround();
     else doTask(BACKWARDS, 150);
-  else if (distanceLeft > 25) doTask(LEFT, 100);
+  else if (distanceLeft > 25) doTask(LEFT, 500);
   else if (distanceFront > 25) drive(FORWARDS);
-  else if (distanceRight > 20) doTask(RIGHT, 100);
+  else if (distanceRight > 20) doTask(RIGHT, 500);
   else if (distanceLeft < 4) doTask(RIGHT, 100);
   else if (distanceRight < 4) doTask(LEFT, 100);
   else if (distanceFront > 10) drive(FORWARDS);
@@ -744,10 +744,10 @@ void doTask(unsigned char task, unsigned long duration)
 void turnAround()
 {
   if (distanceRight > distanceLeft)
-    if (distanceLeft > 4) doTask(ROTATE_RIGHT, 750);
+    if (distanceLeft > 5) doTask(ROTATE_RIGHT, 750);
     else doTask(ROTATE_RIGHT, 750);
   else
-    if (distanceRight > 4) doTask(ROTATE_LEFT, 750);
+    if (distanceRight > 5) doTask(ROTATE_LEFT, 750);
     else doTask(ROTATE_LEFT, 750);
 }
 
@@ -766,7 +766,6 @@ void phase_followLineEnd()
 {
   static unsigned long timer = millis();
   static unsigned char lastDirection = LEFT;
-  lights(WHITE);
 
   updateLineSensor();
   bool turnLeft = (lineSensorValue[0] > colorBlack) || (lineSensorValue[1] > colorBlack);
