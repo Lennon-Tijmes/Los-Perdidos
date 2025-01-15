@@ -1,39 +1,66 @@
-// Motor Pins
-#define MOTOR_LEFT_FWD 10
-#define MOTOR_LEFT_BWD 11
-#define MOTOR_RIGHT_FWD 9
-#define MOTOR_RIGHT_BWD 3
+//#define motorStop
 
-// Sensor Pins
-const unsigned char TRACK_SENSORS[] = {A7, A6, A5, A4, A3, A2, A1, A0};  // 8 sensors
-int sensorReadings[8] = {0, 0, 0, 0, 0, 0, 0, 0};
-
-// Threshold for detecting black
-const unsigned int thresholdBlack =
-
- 800;  // Adjust based on sensor calibration
-
-// Motor Speeds
+// Motor speed definitions for object evasion
 #define SPEED_LEFT 200
 #define SPEED_RIGHT 220
-#define TURN_SPEED_LEFT 55
-#define TURN_SPEED_RIGHT 60
+#define TURN_SPEED_LEFT 60
+#define TURN_SPEED_RIGHT 70
 
-// Variable to remember the last direction the robot lost the line
+#define MOTOR_LEFT_FWD 9
+#define MOTOR_LEFT_BWD 11
+#define MOTOR_RIGHT_FWD 10
+#define MOTOR_RIGHT_BWD 3
+
+// Sensor pins for ultrasonic
+#define TRIG_PIN 12   
+#define ECHO_PIN 13
+
+// Line following sensor array (assuming 8 sensors)
+const unsigned char TRACK_SENSORS[] = {A7, A6, A5, A4, A3, A2, A1, A0};  // 8 sensors
+int sensorReadings[8] = {0, 0, 0, 0, 0, 0, 0, 0};
+const unsigned int thresholdBlack = 800;  // Adjust for black line detection
 bool lastDirectionWasLeft = false;
 
 void setup() {
-  // Set motor pins as outputs
+  // Set motor direction pins as outputs
   pinMode(MOTOR_LEFT_FWD, OUTPUT);
   pinMode(MOTOR_LEFT_BWD, OUTPUT);
   pinMode(MOTOR_RIGHT_FWD, OUTPUT);
   pinMode(MOTOR_RIGHT_BWD, OUTPUT);
 
+  // Set ultrasonic sensor pins
+  pinMode(TRIG_PIN, OUTPUT);
+  pinMode(ECHO_PIN, INPUT);
+
   // Start serial communication for debugging
-  Serial.begin(9600);
+  Serial.begin(9600); 
 }
 
 void loop() {
+  long duration, distance;
+
+  if(millis() % 200 == 0)
+  {
+    // Measure distance from the ultrasonic sensor
+    digitalWrite(TRIG_PIN, LOW);
+    delayMicroseconds(2);  // Ensure trigger is off
+    digitalWrite(TRIG_PIN, HIGH);
+    delayMicroseconds(10);  // Send a 10µs pulse
+    digitalWrite(TRIG_PIN, LOW);
+    duration = pulseIn(ECHO_PIN, HIGH);  // Measure pulse duration
+    distance = duration * 0.034 / 2;     // Calculate distance in cm
+
+    // If an object is detected within 20 cm, evade
+    if (distance > 0 && distance <= 20) {
+      Serial.write("evade\n");
+      evadeObstacle();  // Temporarily evade obstacle
+    } 
+  }
+  followLine();  // Follow the line when no obstacle is detected
+}
+
+// Line following function (using your original logic with 50ms delay)
+void followLine() {
   // Read sensor values
   for (int i = 0; i < 8; i++) {
     sensorReadings[i] = analogRead(TRACK_SENSORS[i]);  // Read analog values from the sensors
@@ -77,28 +104,44 @@ void loop() {
       turnRight();  // Continue turning right
     }
   }
-
-  delay(50);  // Short delay before the next sensor read
 }
 
-// Function to move both motors forward
+// Object evasion function
+void evadeObstacle() {
+  
+ /// Turn right to evade
+  turnRight();
+  delay(700);
+  moveForward();
+  delay(500);
+  turnLeft();
+  delay(2000);
+  moveForward();
+  delay(800);
+  turnLeft();
+  delay(2000);
+  moveForward();
+  delay(1000);
+  turnRight();
+  delay(2000);
+  moveForward();
+  delay(400);
+
+  
+  
+}
+
 void moveForward() {
   analogWrite(MOTOR_LEFT_FWD, SPEED_LEFT);
   analogWrite(MOTOR_RIGHT_FWD, SPEED_RIGHT);
-
 }
 
-// Function to turn left by adjusting motor speeds
 void turnLeft() {
-   // Stop left motor
-  analogWrite(MOTOR_RIGHT_FWD, TURN_SPEED_RIGHT);  // Speed up right motor
-
+  // Serial.write("left\n"); 
+  analogWrite(MOTOR_RIGHT_FWD, TURN_SPEED_RIGHT);  
 }
 
-// Function to turn right by adjusting motor speeds
 void turnRight() {
-  analogWrite(MOTOR_LEFT_FWD, TURN_SPEED_LEFT);  // Speed up left motor
- 
-
+  // Serial.write("right\n");
+  analogWrite(MOTOR_LEFT_FWD, TURN_SPEED_LEFT);  
 }
-
