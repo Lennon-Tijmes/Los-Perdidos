@@ -13,132 +13,140 @@
 
 
 
-// #define DEBUG 1
-// #define DEBUG2 1
-// #define DEBUG3 1
-// #define DEBUG4 1
-// #define DEBUG5 1
-// #define START_AT_MAZE 1
-#define WAIT_FOR_SIGNAL 1
-#define NEW_INTERRUPTS_HANDLING 1
-#define STARTUP_DELAY 2000
+// #define DEBUG 1                  // Enables all debug messages
+// #define START_AT_MAZE 1          // Is robot starting inside the maze without barrel?
+#define WAIT_FOR_SIGNAL 1           // Wait for start signal? if not, start driving immediately
+#define NEW_INTERRUPTS_HANDLING 1   // Instead of disabling all interrupts during rotation sensor function, just disable one pin
+//#define NEW_GRIPPER_HANDLING 1    // Sometimes the gripper gets forced open when robot drives into a wall, this keeps it closed (DOESN'T WORK)
+//#define ENABLE_AUTOMATIC_LIGHTS 1 // Automatically update lights depending on what the robot is doing
+#define STARTUP_DELAY 2000          // Wait a bit to let sonars and other things get warmed up
 
 
 
 // Pins
-const unsigned char LINE_SENSOR_PINS[] = { A2, A3, A4, A5, A6, A7 };
-#define SONAR_LEFT_TRIG_PIN 5
-#define SONAR_LEFT_ECHO_PIN 6
-#define SONAR_FRONT_TRIG_PIN 12
-#define SONAR_FRONT_ECHO_PIN 13
-#define SONAR_RIGHT_TRIG_PIN A1  // 15
-#define SONAR_RIGHT_ECHO_PIN A0  // 14
-#define ROTATION_SENSOR_LEFT_PIN 2
-#define ROTATION_SENSOR_RIGHT_PIN 3
-#define MOTOR_LEFT_POWER_PIN 9
-#define MOTOR_RIGHT_POWER_PIN 10
-#define MOTOR_LEFT_MODE_PIN 7
-#define MOTOR_RIGHT_MODE_PIN 8
-#define GRIPPER_PIN 4
-#define PIXELS_PIN 11
+const unsigned char LINE_SENSOR_PINS[] = { A2, A3, A4, A5, A6, A7 }; // Pin numbers for line sensor (pin 16 - pin 21)
+#define SONAR_LEFT_TRIG_PIN       5  // Left  sonar TRIG pin
+#define SONAR_LEFT_ECHO_PIN       6  // Left  sonar ECHO pin
+#define SONAR_FRONT_TRIG_PIN      12 // Front sonar TRIG pin
+#define SONAR_FRONT_ECHO_PIN      13 // Front sonar ECHO pin
+#define SONAR_RIGHT_TRIG_PIN      A1 // Right sonar TRIG pin (pin 15)
+#define SONAR_RIGHT_ECHO_PIN      A0 // Right sonar ECHO pin (pin 14)
+#define ROTATION_SENSOR_LEFT_PIN  2  // Left  wheel rotation sensor interrupt pin
+#define ROTATION_SENSOR_RIGHT_PIN 3  // Right wheel rotation sensor interrupt pin
+#define MOTOR_LEFT_POWER_PIN      9  // Left  motor power pin
+#define MOTOR_RIGHT_POWER_PIN     10 // Right motor power pin
+#define MOTOR_LEFT_MODE_PIN       7  // Left  motor mode pin
+#define MOTOR_RIGHT_MODE_PIN      8  // Right motor mode pin
+#define GRIPPER_PIN               4  // Gripper control pin
+#define PIXELS_PIN                11 // Pixels control pin
 
 // Phase
-#define PHASE_STARTUP_WAIT      100       // wait a bit just in case
-#define PHASE_WAIT_FOR_SIGNAL   101    // wait for start signal
-#define PHASE_DRIVE_TO_SQUARE   102    // drive forward till black square, grab the pin and turn left
-#define PHASE_FOLLOW_LINE_START 103  // follow the line until inside of the maze
-#define PHASE_DRIVE_MAZE        104         // solve the maze
-#define PHASE_FOLLOW_LINE_END   105    // follow the finishing line and put pin inside black square
-#define PHASE_FINISH            106             // stop driving
-unsigned char programPhase;
-unsigned long programPhaseStartTime;
-unsigned long programStartTime;
+#define PHASE_STARTUP_WAIT      100 // Wait a few seconds to let sonars and other things warm up
+#define PHASE_WAIT_FOR_SIGNAL   101 // Wait for start signal
+#define PHASE_DRIVE_TO_SQUARE   102 // Drive forward till black square, grab the pin and turn left
+#define PHASE_FOLLOW_LINE_START 103 // Follow the line until inside of the maze
+#define PHASE_DRIVE_MAZE        104 // Solve the maze
+#define PHASE_FOLLOW_LINE_END   105 // Follow the finishing line and put pin inside black square
+#define PHASE_FINISH            106 // Stop driving
+unsigned char programPhase;         // Current phase of the program
+unsigned long programPhaseStartTime;// Current phase start time
+unsigned long programStartTime;     // Program start time
 
 // Motors
-#define STOP              200
-#define FORWARDS          201
-#define BACKWARDS         202
-#define SMOOTH_LEFT       203
-#define SMOOTH_RIGHT      204
-#define LEFT              205
-#define RIGHT             206
-#define LEFT_BACK         207
-#define RIGHT_BACK        208
-#define ROTATE_LEFT       209
-#define ROTATE_RIGHT      210
-#define ADJUST_LEFT       211
-#define ADJUST_RIGHT      212
-#define ADJUST_LEFT_HARD  213
-#define ADJUST_RIGHT_HARD 214
-int leftSpeed = 250;
-int rightSpeed = 255;
+#define STOP              200 // Stop both motors
+#define FORWARDS          201 // Drive forwards, both motors full speed forwards
+#define BACKWARDS         202 // Drive backwards, both motors full speed backwards
+#define SMOOTH_LEFT       203 // Turn left slowly, right motor full speed, left motor 75%
+#define SMOOTH_RIGHT      204 // Turn right slowly, left motor full speed, right motor 75%
+#define LEFT              205 // Turn left, right motor full speed, left motor half speed
+#define RIGHT             206 // Turn right, left motor full speed, right motor half speed
+#define LEFT_BACK         207 // Turn left backwards, right motor full speed backwards, left motor half speed backwards
+#define RIGHT_BACK        208 // Turn right backwards, left motor full speed backwards, right motor half speed backwards
+#define ROTATE_LEFT       209 // Rotate in place anti-cloclwise, right motor full speed, left motor full speed backwards
+#define ROTATE_RIGHT      210 // Rotate in place      cloclwise, left motor full speed, right motor full speed backwards
+#define ADJUST_LEFT       211 // for line following
+#define ADJUST_RIGHT      212 // for line following
+#define ADJUST_LEFT_HARD  213 // for line following
+#define ADJUST_RIGHT_HARD 214 // for line following
+// Left and right motors are slightly different so to drive straight we need to set them at slightly different speeds
+// This also changes randomly every robot restart, so we set the difference to 5 to drive most straight on average
+int leftSpeed = 250;  // Left motor speed
+int rightSpeed = 255; // Right motor speed
 
 // Rotation sensor
-unsigned int leftRotationTicks = 0;
-unsigned int rightRotationTicks = 0;
+unsigned int leftRotationTicks = 0;  // Left  wheel "rotation ticks" that rotation sensor counted, there's 20 in wheel's full rotation
+unsigned int rightRotationTicks = 0; // Right wheel "rotation ticks" that rotation sensor counted, there's 20 in wheel's full rotation
 
 // Line sensor
-bool allBlack = false;
-bool allWhite = false;
-unsigned int colorBlack = 801;
-unsigned int colorWhite = 799;
+// This could be one variable but let's not fix what's not broken
+unsigned int colorBlack = 801; // Line sensor value above this indicates black
+unsigned int colorWhite = 799; // Line sensor value above this indicates white
+bool allBlack = false; // True if all line sensor's values are above colorBlack
+bool allWhite = false; // True if all line sensor's values are below colorWhite
 
 // Signal receiver
-#define SLAVE_ID 1
+#define SLAVE_ID 3 // Slave ID for master/slave communication
 
-// LEDs
-#include <Adafruit_NeoPixel.h>  // neopixel library
-#define NUM_PIXELS 4            // number of neopixels
-Adafruit_NeoPixel pixels(NUM_PIXELS, PIXELS_PIN, NEO_RGB + NEO_KHZ800);
+// NeoPixel
+#include <Adafruit_NeoPixel.h> // Load NeoPixel library
+#define NUM_PIXELS 4           // Number of LEDs
+Adafruit_NeoPixel pixels(NUM_PIXELS, PIXELS_PIN, NEO_RGB + NEO_KHZ800); // Initialize NeoPixel
 
-#define OFF    300
-#define WHITE  301
-#define RED    302
-#define ORANGE 303
-#define YELLOW 304
-#define GREEN  305
-#define BLUE   306
-#define PURPLE 307
+#define OFF    300 // Easy to use LED color
+#define WHITE  301 // Easy to use LED color
+#define RED    302 // Easy to use LED color
+#define ORANGE 303 // Easy to use LED color
+#define YELLOW 304 // Easy to use LED color
+#define GREEN  305 // Easy to use LED color
+#define BLUE   306 // Easy to use LED color
+#define PURPLE 307 // Easy to use LED color
 
-#define LED_BACK_LEFT 0
-#define LED_BACK_RIGHT 1
-#define LED_FRONT_RIGHT 2
-#define LED_FRONT_LEFT 3
+#define LED_BACK_LEFT   0 // Back left LED id
+#define LED_BACK_RIGHT  1 // Back right LED id
+#define LED_FRONT_RIGHT 2 // Front left LED id
+#define LED_FRONT_LEFT  3 // Front right LED id
 
-// Main functions
+// Function to set up pins, interrupts, variables and everything else needed
 void setup()
 {
-  Serial.begin(9600);                                                // Begin the serial monitor
-  pixels.begin();                                                    // Initialize the pixels thing
-  Serial.println("Slave started");                                   // Send message to base
-  pinMode(SONAR_LEFT_TRIG_PIN, OUTPUT);                              // Initialize the left  sonar trig pin as output
-  pinMode(SONAR_LEFT_ECHO_PIN, INPUT);                               // Initialize the left  sonar echo pin as input
-  pinMode(SONAR_FRONT_TRIG_PIN, OUTPUT);                             // Initialize the front sonar trig pin as output
-  pinMode(SONAR_FRONT_ECHO_PIN, INPUT);                              // Initialize the front sonar echo pin as input
-  pinMode(SONAR_RIGHT_TRIG_PIN, OUTPUT);                             // Initialize the right sonar trig pin as output
-  pinMode(SONAR_RIGHT_ECHO_PIN, INPUT);                              // Initialize the right sonar echo pin as input
-  pinMode(ROTATION_SENSOR_LEFT_PIN, INPUT_PULLUP);                   // Initialize the left  rotation sensor as pullup input
-  pinMode(ROTATION_SENSOR_RIGHT_PIN, INPUT_PULLUP);                  // Initialize the right rotation sensor as pullup input
-  pinMode(MOTOR_LEFT_POWER_PIN, OUTPUT);                             // Initialize the left  motor power pin as output
-  pinMode(MOTOR_RIGHT_POWER_PIN, OUTPUT);                            // Initialize the right motor power pin as output
-  pinMode(MOTOR_LEFT_MODE_PIN, OUTPUT);                              // Initialize the left  motor mode  pin  as output
-  pinMode(MOTOR_RIGHT_MODE_PIN, OUTPUT);                             // Initialize the right motor mode  pin  as output
-  pinMode(GRIPPER_PIN, OUTPUT);                                      // Initialize the gripper pin as output
-  for (char i = 0; i < 6; i++) pinMode(LINE_SENSOR_PINS[i], INPUT);  // Initialize the line sensor pins as input
+  Serial.begin(9600);                               // Begin the serial monitor
+  pixels.begin();                                   // Initialize the pixels thing
+  Serial.println("Slave started");                  // Send message to base
+  pinMode(SONAR_LEFT_TRIG_PIN, OUTPUT);             // Initialize the left  sonar trig pin as output
+  pinMode(SONAR_LEFT_ECHO_PIN, INPUT);              // Initialize the left  sonar echo pin as input
+  pinMode(SONAR_FRONT_TRIG_PIN, OUTPUT);            // Initialize the front sonar trig pin as output
+  pinMode(SONAR_FRONT_ECHO_PIN, INPUT);             // Initialize the front sonar echo pin as input
+  pinMode(SONAR_RIGHT_TRIG_PIN, OUTPUT);            // Initialize the right sonar trig pin as output
+  pinMode(SONAR_RIGHT_ECHO_PIN, INPUT);             // Initialize the right sonar echo pin as input
+  pinMode(ROTATION_SENSOR_LEFT_PIN, INPUT_PULLUP);  // Initialize the left  rotation sensor as pullup input
+  pinMode(ROTATION_SENSOR_RIGHT_PIN, INPUT_PULLUP); // Initialize the right rotation sensor as pullup input
+  pinMode(MOTOR_LEFT_POWER_PIN, OUTPUT);            // Initialize the left  motor power pin as output
+  pinMode(MOTOR_RIGHT_POWER_PIN, OUTPUT);           // Initialize the right motor power pin as output
+  pinMode(MOTOR_LEFT_MODE_PIN, OUTPUT);             // Initialize the left  motor mode  pin  as output
+  pinMode(MOTOR_RIGHT_MODE_PIN, OUTPUT);            // Initialize the right motor mode  pin  as output
+  pinMode(GRIPPER_PIN, OUTPUT);                     // Initialize the gripper pin as output
+  for (char i = 0; i < 6; i++)                      // Initialize the line sensor pins as input
+  {
+    pinMode(LINE_SENSOR_PINS[i], INPUT);
+  }
 
+  // Attach interrupts for both rotation sensors
   attachInterrupt(digitalPinToInterrupt(ROTATION_SENSOR_LEFT_PIN), countRotationsLeft, RISING);
   attachInterrupt(digitalPinToInterrupt(ROTATION_SENSOR_RIGHT_PIN), countRotationsRight, RISING);
 
   programStartTime = millis();
-  changePhase(PHASE_STARTUP_WAIT);
-  lights(WHITE);
+  changePhase(PHASE_STARTUP_WAIT); // Start at phase PHASE_STARTUP_WAIT
+  lights(WHITE); // Set lights to white
 }
 
+// The program's main loop, run many times per millisecond
 void loop()
 {
-  updateSonar();
-  updateLineSensor();
+  updateSonar();      // Tick the sonar managing function, letting up update sonar readings whenever it decides to
+  updateLineSensor(); // Update line sensor readings
 
+  // Since the robot has multiple distinct tasks to do, they're split into "phases"
+  // Depending on current phase saved in programPhase variable, appriopriate function is ticked
   switch (programPhase)
   {
     case PHASE_STARTUP_WAIT: phase_startupWait(); break;
@@ -150,10 +158,19 @@ void loop()
     case PHASE_FINISH: phase_finish(); break;
   }
 
-  // updateGripper();
-  // updateLights();
+  // Sometimes the gripper gets forced open when robot drives into a wall, this keeps it closed
+  // DOESN'T WORK - the gripper requires precise delay between impulses and this method cannot guarantee them
+  #ifdef NEW_GRIPPER_HANDLING
+    updateGripper();
+  #endif
+  // Automatically update lights depending on what the robot is doing
+  // It seems to slow down the main loop quite a bit, making robot perform poorly
+  #ifdef ENABLE_AUTOMATIC_LIGHTS
+    updateLights();
+  #endif
 }
 
+// Set program phase and note down phase start time which some phases use
 void changePhase(unsigned char phase)
 {
   programPhase = phase;
@@ -166,9 +183,10 @@ void changePhase(unsigned char phase)
 // ROTATION SENSOR //
 /////////////////////
 
-#define DEBOUNCE_TIME_MS 30;  // Debounce time for more accurate rotation sensor reading, at max robot speed this should tick every 40ms
+// Debounce time for more accurate rotation sensor reading, at max robot speed sensor should tick every 40ms
+#define DEBOUNCE_TIME_MS 30;
 
-// Counts the interrupts of the rotation sensor for the left wheel
+// Handle the interrupts of the rotation sensor for the left wheel
 void countRotationsLeft()
 {
   static unsigned long timer;
@@ -191,7 +209,7 @@ void countRotationsLeft()
   #endif
 }
 
-// Counts the interrupts of the rotation sensor for the right wheel
+// Handle the interrupts of the rotation sensor for the right wheel
 void countRotationsRight()
 {
   static unsigned long timer;
@@ -223,6 +241,7 @@ void countRotationsRight()
 int lineSensorValue[6] = { 0, 0, 0, 0, 0, 0 };
 
 // Read all the line sensor pins
+// Could be optimized since lineSensorValue is unused but there was no need
 void updateLineSensor()
 {
   for (unsigned char i = 0; i < 6; i++)
@@ -230,19 +249,21 @@ void updateLineSensor()
     lineSensorValue[i] = analogRead(LINE_SENSOR_PINS[i]);
   }
 
-  allBlack = (lineSensorValue[0] >= colorBlack)
+  // True if all the line sensor bits are looking at black
+  allBlack =    (lineSensorValue[0] >= colorBlack)
              && (lineSensorValue[1] >= colorBlack)
              && (lineSensorValue[2] >= colorBlack)
              && (lineSensorValue[3] >= colorBlack)
              && (lineSensorValue[4] >= colorBlack)
-             && (lineSensorValue[5] >= colorBlack);  // true if all the line sensor bits are looking at black
+             && (lineSensorValue[5] >= colorBlack);
 
-  allWhite = (lineSensorValue[0] <= colorWhite)
+  // True if all the line sensor bits are looking at white
+  allWhite =    (lineSensorValue[0] <= colorWhite)
              && (lineSensorValue[1] <= colorWhite)
              && (lineSensorValue[2] <= colorWhite)
              && (lineSensorValue[3] <= colorWhite)
              && (lineSensorValue[4] <= colorWhite)
-             && (lineSensorValue[5] <= colorWhite);  // true if all the line sensor bits are looking at white
+             && (lineSensorValue[5] <= colorWhite);
 }
 
 
@@ -252,9 +273,11 @@ void updateLineSensor()
 ///////////
 
 // The HC-SR04 manual recommends sending a 10 microsecond pulse to TRIG pin
+// Used in delayMicroseconds function - 10 microseconds is a short enough delay to not interfere with the rest of the program
+// Using delayMicroseconds ensures that the sonar works correctly
 #define SONAR_SIGNAL_DURATION_US 10
 
-// Minimum delay before switching to next sonar
+// Minimum delay before switching to next sonar, so signal from previous sonar doesn't interfere
 #define SONAR_DELAY_MS 10
 
 // We assume the maze is 7x7, which means the longest distance to measure should be 7*30cm = 210cm
@@ -263,31 +286,38 @@ void updateLineSensor()
 #define SONAR_RECEIVER_TIMEOUT_MS 15
 
 // Sonar phases
-#define SONAR_LEFT_SEND_SIGNAL 0
-#define SONAR_LEFT_READ_SIGNAL 1
+#define SONAR_LEFT_SEND_SIGNAL  0
+#define SONAR_LEFT_READ_SIGNAL  1
 #define SONAR_FRONT_SEND_SIGNAL 2
 #define SONAR_FRONT_READ_SIGNAL 3
 #define SONAR_RIGHT_SEND_SIGNAL 4
 #define SONAR_RIGHT_READ_SIGNAL 5
-#define SONAR_UPDATE_DISTANCES 6
+#define SONAR_UPDATE_DISTANCES  6
 
-const double microsecondsToCentimeters = 0.017;  // 340m/s = 34000cm/s = 34cm/ms = 0.034cm/us, sound travels to object and back so divide by 2 for distance to object
+// Microseconds to cm converter using the speed of sound
+// 340m/s = 34000cm/s = 34cm/ms = 0.034cm/us, sound travels to object and back so divide by 2 for distance to object
+const double microsecondsToCentimeters = 0.017;
 
-#define SONAR_TOO_FAR 1023
-#define SONAR_NO_READING 1024
-double distanceLeft = SONAR_NO_READING;
-double distanceFront = SONAR_NO_READING;
-double distanceRight = SONAR_NO_READING;
-bool sonarsStuck = false;
+#define SONAR_TOO_FAR 1023    // distance reading for when sonar returns value above 210cm
+#define SONAR_NO_READING 1024 // distance value for sonar timing out before signal can come back
+double distanceLeft = SONAR_NO_READING;  // distance in cm from left sonar
+double distanceFront = SONAR_NO_READING; // distance in cm from front sonar
+double distanceRight = SONAR_NO_READING; // distance in cm from right sonar
+bool sonarsStuck = false; // True when sonar readings haven't changed since last read, used for detecting whether robot is stuck
 
+// Sonar managing function - uses sonars to gauge distance to a wall on left, front and right
+// Rather than waiting for sonar's sound signal to come back,
+//   the function quits and checks for result on next call - should be called every program loop
+// Uses one sonar at a time to avoid polluting the reading from another sonars' signal
+// After all 3 sonars are read, updates global distance variables
 void updateSonar()
 {
-  static unsigned char sonarPhase = 0;
-  static unsigned long sonarLastActionTime = 0;
-  static unsigned long sonarSignalDuration = 0;
-  static double currentDistanceLeft = SONAR_NO_READING;
-  static double currentDistanceFront = SONAR_NO_READING;
-  static double currentDistanceRight = SONAR_NO_READING;
+  static unsigned char sonarPhase = 0;          // Sonar manager's phase, makes sure only one sonar is used at a time
+  static unsigned long sonarLastActionTime = 0; // Timestamp of when sonar sent or received a signal, depending on phase. Used for ensuring delay between actions that need it
+  static unsigned long sonarSignalDuration = 0; // Variable to save sonar's reading in microseconds
+  static double currentDistanceLeft = SONAR_NO_READING;  // Current sonar reading, befoe it's put into a global variable
+  static double currentDistanceFront = SONAR_NO_READING; // Current sonar reading, befoe it's put into a global variable
+  static double currentDistanceRight = SONAR_NO_READING; // Current sonar reading, befoe it's put into a global variable
 
   switch (sonarPhase)
   {
@@ -297,9 +327,9 @@ void updateSonar()
     case SONAR_LEFT_SEND_SIGNAL:
       if (millis() - sonarLastActionTime > SONAR_DELAY_MS)
       {
-        digitalWrite(SONAR_LEFT_TRIG_PIN, HIGH);
-        delayMicroseconds(SONAR_SIGNAL_DURATION_US);
-        digitalWrite(SONAR_LEFT_TRIG_PIN, LOW);
+        digitalWrite(SONAR_LEFT_TRIG_PIN, HIGH); // Start sending pulse to sonar
+        delayMicroseconds(SONAR_SIGNAL_DURATION_US); // Delay function used to ensure sonar works correctly, 10us delay doesn't affect the robot's performance
+        digitalWrite(SONAR_LEFT_TRIG_PIN, LOW); // Stop sending pulse to sonar
         sonarLastActionTime = millis();
         sonarPhase = SONAR_LEFT_READ_SIGNAL;
       }
@@ -308,16 +338,24 @@ void updateSonar()
     // Get HIGH state duration from ECHO pin, or move to next phase if no signal after SONAR_RECEIVER_TIMEOUT_MS milliseconds
     case SONAR_LEFT_READ_SIGNAL:
       sonarSignalDuration = pulseIn(SONAR_LEFT_ECHO_PIN, HIGH);
-      if (sonarSignalDuration > 0)
+      if (sonarSignalDuration > 0) // Duration of HIGH pulse is 0 until sonar receives its sound signal
       {
-        if (sonarSignalDuration > 12353) currentDistanceLeft = SONAR_TOO_FAR;  // if more than 210cm
-        else currentDistanceLeft = (double)sonarSignalDuration * microsecondsToCentimeters;
+        // if more than 210cm mark reading as too far, otherwise we save the reading
+        if (sonarSignalDuration > 12353)
+        {
+          currentDistanceLeft = SONAR_TOO_FAR;
+        }
+        // HC-SR04 sonar returns time between signal being sent and received in microseconds, so for easier use we convert it to cm
+        else
+        {
+          currentDistanceLeft = (double)sonarSignalDuration * microsecondsToCentimeters;
+        }
 
-        sonarSignalDuration = 0;
+        sonarSignalDuration = 0; // reset variable just in case, even if doesn't seem necessary
         sonarLastActionTime = millis();
         sonarPhase = SONAR_FRONT_SEND_SIGNAL;
       }
-      else if (millis() - sonarLastActionTime > SONAR_RECEIVER_TIMEOUT_MS)
+      else if (millis() - sonarLastActionTime > SONAR_RECEIVER_TIMEOUT_MS) // if we didn't receive signal within SONAR_RECEIVER_TIMEOUT_MS ms, mark as "no reading" and move on
       {
         currentDistanceLeft = SONAR_NO_READING;
         sonarLastActionTime = millis();
@@ -342,16 +380,24 @@ void updateSonar()
     // Get HIGH state duration from ECHO pin, or move to next phase if no signal after SONAR_RECEIVER_TIMEOUT_MS milliseconds
     case SONAR_FRONT_READ_SIGNAL:
       sonarSignalDuration = pulseIn(SONAR_FRONT_ECHO_PIN, HIGH);
-      if (sonarSignalDuration > 0)
+      if (sonarSignalDuration > 0) // Duration of HIGH pulse is 0 until sonar receives its sound signal
       {
-        if (sonarSignalDuration > 12353) currentDistanceFront = SONAR_TOO_FAR;  // if more than 210cm
-        else currentDistanceFront = (double)sonarSignalDuration * microsecondsToCentimeters;
+        // if more than 210cm mark reading as too far, otherwise we save the reading
+        if (sonarSignalDuration > 12353)
+        {
+          currentDistanceFront = SONAR_TOO_FAR;
+        }
+        // HC-SR04 sonar returns time between signal being sent and received in microseconds, so for easier use we convert it to cm
+        else
+        {
+          currentDistanceFront = (double)sonarSignalDuration * microsecondsToCentimeters;
+        }
 
-        sonarSignalDuration = 0;
+        sonarSignalDuration = 0; // reset variable just in case, even if doesn't seem necessary
         sonarLastActionTime = millis();
         sonarPhase = SONAR_RIGHT_SEND_SIGNAL;
       }
-      else if (millis() - sonarLastActionTime > SONAR_RECEIVER_TIMEOUT_MS)
+      else if (millis() - sonarLastActionTime > SONAR_RECEIVER_TIMEOUT_MS) // if we didn't receive signal within SONAR_RECEIVER_TIMEOUT_MS ms, mark as "no reading" and move on
       {
         currentDistanceFront = SONAR_NO_READING;
         sonarLastActionTime = millis();
@@ -376,16 +422,24 @@ void updateSonar()
     // Get HIGH state duration from ECHO pin, or move to next phase if no signal after SONAR_RECEIVER_TIMEOUT_MS milliseconds
     case SONAR_RIGHT_READ_SIGNAL:
       sonarSignalDuration = pulseIn(SONAR_RIGHT_ECHO_PIN, HIGH);
-      if (sonarSignalDuration > 0)
+      if (sonarSignalDuration > 0) // Duration of HIGH pulse is 0 until sonar receives its sound signal
       {
-        if (sonarSignalDuration > 12353) currentDistanceRight = SONAR_TOO_FAR;  // if more than 210cm
-        else currentDistanceRight = (double)sonarSignalDuration * microsecondsToCentimeters;
+        // if more than 210cm mark reading as too far, otherwise we save the reading
+        if (sonarSignalDuration > 12353)
+        {
+          currentDistanceRight = SONAR_TOO_FAR;
+        }
+        // HC-SR04 sonar returns time between signal being sent and received in microseconds, so for easier use we convert it to cm
+        else
+        {
+          currentDistanceRight = (double)sonarSignalDuration * microsecondsToCentimeters;
+        }
 
-        sonarSignalDuration = 0;
+        sonarSignalDuration = 0; // reset variable just in case, even if doesn't seem necessary
         sonarLastActionTime = millis();
         sonarPhase = SONAR_UPDATE_DISTANCES;
       }
-      else if (millis() - sonarLastActionTime > SONAR_RECEIVER_TIMEOUT_MS)
+      else if (millis() - sonarLastActionTime > SONAR_RECEIVER_TIMEOUT_MS) // if we didn't receive signal within SONAR_RECEIVER_TIMEOUT_MS ms, mark as "no reading" and move on
       {
         currentDistanceRight = SONAR_NO_READING;
         sonarLastActionTime = millis();
@@ -394,7 +448,9 @@ void updateSonar()
       break;
 
     case SONAR_UPDATE_DISTANCES:
+      // If none of the sonar readings changed since last read, we mark robot as potentially stuck
       sonarsStuck = distanceLeft == currentDistanceLeft && distanceFront == currentDistanceFront && distanceRight == currentDistanceRight;
+
       distanceLeft = currentDistanceLeft;
       distanceFront = currentDistanceFront;
       distanceRight = currentDistanceRight;
@@ -409,11 +465,15 @@ void updateSonar()
 // MOTOR //
 ///////////
 
+// The motors sometimes don't move at all when given speed below 150
+// We will let wheels start spinning with max motor speed, then after WHEEL_INERTIA_DELAY_MS change to desired speed
 #define WHEEL_INERTIA_DELAY_MS 2
 
 #define FORWARDS_MODE LOW
 #define BACKWARDS_MODE HIGH
 
+// The motors require very weird input - seems to be a 9-bit number split over 2 pins
+// This function makes using motors much simpler, now speed is between -255 and 255
 void setMotors(int leftMotorSpeed, int rightMotorSpeed)
 {
   if (leftMotorSpeed >= 0)
@@ -447,6 +507,7 @@ void setMotors(int leftMotorSpeed, int rightMotorSpeed)
   }
 }
 
+// Using drive(FORWARDS) looks much nicer than setMotors(250, 255), so this function exists
 unsigned char lastMode = 255;
 void drive(unsigned char mode)
 {
@@ -483,38 +544,44 @@ void drive(unsigned char mode)
 // GRIPPER //
 /////////////
 
-#define GRIPPER_OPEN 1600   // Value for gripper being open
-#define GRIPPER_CLOSED 1010 // Value for gripper being closed
+#define GRIPPER_OPEN 1600   // Pulse duration for gripper which it interprets as opening
+#define GRIPPER_CLOSED 1010 // Pulse duration for gripper which it interprets as closing
 unsigned long gripperState = GRIPPER_CLOSED;
 
-// Sets the gripper position to the given pulse
-void setGripper_old(unsigned int pulse)
-{
-  for (unsigned char i = 0; i < 8; i++)
+#ifdef NEW_GRIPPER_HANDLING
+  void setGripper(unsigned long openClose)
   {
-    digitalWrite(GRIPPER_PIN, HIGH);
-    delayMicroseconds(pulse);
-    digitalWrite(GRIPPER_PIN, LOW);
+    gripperState = openClose;
   }
-}
 
-void setGripper(unsigned long openClose)
-{
-  gripperState = openClose;
-}
-
-
-void updateGripper()
-{
-  static unsigned long timer = micros();
-
-  if (micros() - timer >= gripperState)
+  // Keep gripper in its desired state by constantly sending signals
+  // DOESN'T WORK - adds too much delay to main loop
+  void updateGripper()
   {
-    digitalWrite(GRIPPER_PIN, LOW);
-    digitalWrite(GRIPPER_PIN, HIGH);
-    timer = micros();
+    static unsigned long timer = micros();
+
+    if (micros() - timer >= gripperState)
+    {
+      digitalWrite(GRIPPER_PIN, LOW);
+      digitalWrite(GRIPPER_PIN, HIGH);
+      timer = micros();
+    }
   }
-}
+#else
+  // Immediately sets the gripper position to the given pulse
+  void setGripper(unsigned int pulse)
+  {
+    for (unsigned char i = 0; i < 8; i++)
+    {
+      digitalWrite(GRIPPER_PIN, HIGH);
+      delayMicroseconds(pulse);
+      digitalWrite(GRIPPER_PIN, LOW);
+    }
+  }
+#endif
+
+
+
 
 
 
@@ -533,6 +600,7 @@ void phase_startupWait()
     #endif
   }
 }
+
 bool startupDelay()
 {
   return millis() - programStartTime > STARTUP_DELAY;
@@ -575,7 +643,7 @@ bool hasReceivedSignal()
   }
   else
   {
-    // maybe flash lights to say that we cannot connect to base
+    // Maybe flash lights to say that we cannot connect to base
   }
 
   return false;
@@ -587,8 +655,11 @@ bool hasReceivedSignal()
 // PHASE_DRIVE_TO_SQUARE //
 ///////////////////////////
 
+// Drive from starting spot to black square, pick up pin then go left
+// Here using delays is fine because no other code needs to run at this time
 void phase_driveToSquare()
 {
+  // Drive to the square
   while (!allBlack)
   {
     updateLineSensor();
@@ -598,11 +669,12 @@ void phase_driveToSquare()
 
   updateLineSensor();
 
+  // When on the square grab pin and go left
   if (allBlack)
   {
     drive(FORWARDS);
     delay(100);
-    setGripper_old(GRIPPER_CLOSED);
+    setGripper(GRIPPER_CLOSED);
     drive(ROTATE_LEFT);
     delay(460);
     drive(FORWARDS);
@@ -617,6 +689,7 @@ void phase_driveToSquare()
 // PHASE_FOLLOW_LINE_START //
 /////////////////////////////
 
+// Follow the black line until we're inside the maze or until 3 seconds pass
 void phase_followLineStart()
 {
   static unsigned char lastDirection = STOP;
@@ -627,8 +700,16 @@ void phase_followLineStart()
   bool turnRight =  (lineSensorValue[4] >= colorBlack) || (lineSensorValue[5] >= colorBlack);
 
   if (allWhite)
-    if (lastDirection == LEFT) drive(ADJUST_LEFT);
-    else drive(ADJUST_RIGHT);
+  {
+    if (lastDirection == LEFT)
+    {
+      drive(ADJUST_LEFT);
+    }
+    else
+    {
+      drive(ADJUST_RIGHT);
+    }
+  }
   else
   {
     if (goForwards)
@@ -665,17 +746,17 @@ void phase_followLineStart()
 // PHASE_DRIVE_MAZE //
 //////////////////////
 
-#define CHECK_FINISH_LINE_DELAY_MS 10000
+// If we start checking for black line immeditely after entering the maze, we'll find the start line and think we're at the finish
+#define CHECK_FINISH_LINE_DELAY_MS 20000
 
 unsigned long activeTaskTimer = millis();
 
 void phase_driveMaze()
 {
-  static unsigned char finishLineCounter = 0;
-  static unsigned long stuckTimer = millis();
-  static unsigned int stuckRotations = 0;
-  static unsigned char stuckCounter = 0;
-  static unsigned char previousTask = STOP;
+  static unsigned long stuckTimer = millis(); // Used for assuring delay between checking whether robot is stuck
+  static unsigned int stuckRotations = 0;     // Keeps track of wheel rotations to see whether robot is stuck
+  static unsigned char stuckCounter = 0;      // Increases if robot is stuck, at certain value we unstuck the robot
+  static unsigned char previousTask = STOP;   // Keeps track of previous task for stuck checks
   previousTask = lastMode;
 
   if (sonarsStuck)
@@ -685,9 +766,12 @@ void phase_driveMaze()
   }
 
   // If a task is ongoing, let it continue
-  if (millis() < activeTaskTimer) return;
+  if (millis() < activeTaskTimer)
+  {
+    return;
+  }
 
-  // If a sonar failed, wait until it's fixed
+  // If a sonar failed to read distance, wait until it's fixed
   if (distanceLeft >= SONAR_NO_READING || distanceFront >= SONAR_NO_READING || distanceRight >= SONAR_NO_READING)
   {
     doTask(STOP, 50);
@@ -695,6 +779,7 @@ void phase_driveMaze()
     return;
   }
 
+  // If we're outside the maze, pause - we don't know if we're at the beginning or end
   if (distanceLeft == SONAR_TOO_FAR && distanceRight == SONAR_TOO_FAR)
   {
     doTask(STOP, 100);
@@ -702,50 +787,117 @@ void phase_driveMaze()
     return;
   }
 
-  // robot AI
-  if (distanceFront < 10)
-    if (distanceLeft < 15 && distanceRight < 15) turnAround();
-    else doTask(BACKWARDS, 150);
-  else if (distanceLeft > 25) doTask(LEFT, 500);
-  else if (distanceFront > 25) drive(FORWARDS);
-  else if (distanceRight > 20) doTask(RIGHT, 500);
-  else if (distanceLeft < 4) doTask(RIGHT, 100);
-  else if (distanceRight < 4) doTask(LEFT, 100);
-  else if (distanceFront > 10) drive(FORWARDS);
-  else turnAround();
+  // Maze AI - since the maze has no loops, we can just follow left wall until finish
+  if (distanceFront < 10) // If we're too close to a wall at the front - back off, unless we're in a dead end - then turn around
+  {
+    if (distanceLeft < 15 && distanceRight < 15)
+    {
+      turnAround();
+    }
+    else
+    {
+      doTask(BACKWARDS, 150);
+    }
+  }
+  else if (distanceLeft > 25) // If no wall on the left, go left
+  {
+    doTask(LEFT, 500); // After some testing, turning for 500ms brought much better results than shorter turns
+  }
+  else if (distanceFront > 25) // If wall on the left, but no wall in front, go forward
+  {
+    drive(FORWARDS);
+  }
+  else if (distanceRight > 20) // If walls on left and front, but no wall on right, go right
+  {
+    doTask(RIGHT, 500); // After some testing, turning for 500ms brought much better results than shorter turns
+  }
+  else if (distanceLeft < 4) // If too close to a wall, turn away from it
+  {
+    doTask(RIGHT, 100);
+  }
+  else if (distanceRight < 4) // If too close to a wall, turn away from it
+  {
+    doTask(LEFT, 100);
+  }
+  // Just noticed these two below don't make much sense
+  // At this point left distance is 4-25, front 10-25, right 4-20 so we should just turn around...
+  else if (distanceFront > 10)
+  {
+    drive(FORWARDS);
+  }
+  else
+  {
+    turnAround();
+  }
 
-  // stuck detection - if wheels not spinning go backwards
+  // If wheels are not spinning, go backwards
   if (millis() - stuckTimer > 200)
   {
-    if (leftRotationTicks + rightRotationTicks <= stuckRotations + 5) doTask(BACKWARDS, 200);
-    else stuckRotations = leftRotationTicks + rightRotationTicks;
+    if (leftRotationTicks + rightRotationTicks <= stuckRotations + 5) // If wheel ticks changed by less than 5 in 200ms, go backwards to get unstuck
+    {
+      doTask(BACKWARDS, 200);
+    }
+    else // Otherwise update the rotation counter
+    {
+      stuckRotations = leftRotationTicks + rightRotationTicks;
+    }
 
     stuckTimer = millis();
   }
 
-  // if robot is stuck in forwards-backwards loop
+  // If robot is stuck in forwards-backwards loop, turn left a little
   if (lastMode != previousTask)
-    if (lastMode == FORWARDS && previousTask == BACKWARDS || lastMode == BACKWARDS && previousTask == FORWARDS) stuckCounter++;
-    else stuckCounter = 0;
-  if (stuckCounter > 6) doTask(LEFT, 100);
+  {
+    if (lastMode == FORWARDS && previousTask == BACKWARDS || lastMode == BACKWARDS && previousTask == FORWARDS)
+    {
+      stuckCounter++;
+    }
+    else
+    {
+      stuckCounter = 0;
+    }
+  }
+  if (stuckCounter > 6) // If robot went between FORWARDS and BACKWARDS 7+ times, turn left to get unstuck
+  {
+    doTask(LEFT, 100);
+  }
 }
 
+// Drive for a set duration of time
 void doTask(unsigned char task, unsigned long duration)
 {
   drive(task);
   activeTaskTimer = millis() + duration;
 }
 
+// Choose best way to turn around
 void turnAround()
 {
   if (distanceRight > distanceLeft)
-    if (distanceLeft > 5) doTask(ROTATE_RIGHT, 750);
-    else doTask(ROTATE_RIGHT, 750);
+  {
+    if (distanceLeft > 5)
+    {
+      doTask(ROTATE_RIGHT, 750);
+    }
+    else
+    {
+      doTask(ROTATE_RIGHT, 750); // This used to be driving back-left, then forwards-right but no time to recreate it
+    }
+  }
   else
-    if (distanceRight > 5) doTask(ROTATE_LEFT, 750);
-    else doTask(ROTATE_LEFT, 750);
+  {
+    if (distanceRight > 5)
+    {
+      doTask(ROTATE_LEFT, 750);
+    }
+    else
+    {
+      doTask(ROTATE_LEFT, 750); // This used to be driving back-right, then forwards-left but no time to recreate it
+    }
+  }
 }
 
+// Returns whether the two numbers are no more than 'diff' apart, currently unused
 bool numbersAreClose(double a, double b, double diff)
 {
   return abs(a - b) < diff;
@@ -835,34 +987,6 @@ void printDebug(String message)
   #endif
 }
 
-void printDebug2(String message)
-{
-  #ifdef DEBUG2
-    Serial.println(String("[") + millis() + "] " + message);
-  #endif
-}
-
-void printDebug3(String message)
-{
-  #ifdef DEBUG3
-    Serial.println(String("[") + millis() + "] " + message);
-  #endif
-}
-
-void printDebug4(String message)
-{
-  #ifdef DEBUG4
-    Serial.println(String("[") + millis() + "] " + message);
-  #endif
-}
-
-void printDebug5(String message)
-{
-  #ifdef DEBUG5
-    Serial.println(String("[") + millis() + "] " + message);
-  #endif
-}
-
 
 
 ///////////////
@@ -871,6 +995,8 @@ void printDebug5(String message)
 
 #define BLINK_DELAY_MS 250
 
+// Automatically update lights depending on what the robot is doing
+// But it seems to slow down main loop making maze driving bad :(
 void updateLights()
 {
   switch (lastMode)
